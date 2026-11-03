@@ -1,0 +1,25 @@
+site_id,site_name,street_address,city,state,zip_code,latitude,longitude,equipment_vendor,equipment_model,site_status,last_updated
+NY-BRONX-017,BRONX GRAND CONCOURSE,1250 Grand Concourse,Bronx,NY,10456,40.834712,-73.916521,Ericsson,AIR 6449,ACTIVE,2026-09-12
+NY-BX-0017,Bronx - Grand Concourse (legacy),1250 GRAND CONCOURSE,BRONX,NY,10456-2201,40.8347,-73.9165,Ericsson,AIR 3246,ACTIVE,2023-02-01
+NY-BRONX-018,Grand Concourse South,1100 Grand Concourse,Bronx,NY,10456,40.829874,-73.919612,Nokia,AirScale,ACTIVE,2026-08-30
+NY-BRONX-022,Fordham / Webster,2501 Webster Avenue,Bronx,NY,10458,40.861023,-73.889015,Samsung,MT6402,ACTIVE,2026-07-19
+NY-BRONX-031,Hunts Point Market,890 Hunts Point Ave.,Bronx,NY,10474,40.813044,-73.887120,Ericsson,AIR 6449,ACTIVE,2026-06-02
+NY-BRONX-009,Yankee Stadium,1 E 161st St,Bronx,NY,10451,40.829643,-73.926175,Ericsson,AIR 6488,ACTIVE,2026-09-01
+NY-MANH-004,Times Square Broadway,1600 Broadway,New York,NY,10019,40.761245,-73.983711,Ericsson,AIR 6488,ACTIVE,2026-09-15
+NY-MANH-006,Times Sq - 7th Ave,729 7th Ave,New York,NY,10019,40.760512,-73.983012,Ericsson,AIR 6449,ACTIVE,2026-05-11
+NY-MANH-011,Columbia Univ Broadway,2880 Broadway,New York,NY,10025,40.805812,-73.964533,Nokia,AirScale,ACTIVE,2026-04-22
+NY-MANH-019,  Harlem 125th St ,125 W 125th St,New York,NY,10027,40.809410,-73.948012,Samsung,MT6402,ACTIVE,09/03/2026
+NY-MANH-019,  Harlem 125th St ,125 W 125th St,New York,NY,10027,40.809410,-73.948012,Samsung,MT6402,ACTIVE,09/03/2026
+NY-MANH-027,South St Seaport,200 Water Street,New York,NY,10038,40.706712,-74.004533,Ericsson,AIR 3246,MAINTENANCE,2026-10-01
+NY-MANH-033,Harlem River Drive,2300 Harlem River Dr,New York,NY,10035,40.802011,-73.931045,Ericsson,AIR 3246,ACTIVE,2025-12-12
+NY-BKLYN-002,Bushwick Broadway,1600 Broadway,Brooklyn,NY,11207,40.689211,-73.918734,Nokia,AirScale,ACTIVE,2026-03-03
+NY-BKLYN-009,Atlantic Ave Boerum Hill,445 Atlantic Ave,Brooklyn,NY,11217,,,Ericsson,AIR 6449,ACTIVE,2026-02-14
+NY-BKLYN-014,DUMBO Main Street,1 Main St,Brooklyn,NY,11201,40.703312,-73.990321,Samsung,MT6402,ACTIVE,2026-08-08
+NY-BKLYN-020,Coney Island Ocean Pkwy,2900 Ocean Pkwy,Brooklyn,NY,11235,-73.969011,40.579023,Nokia,AirScale,ACTIVE,2026-01-30
+NY-QNS-003,Queens Blvd - Woodside,61-15 Queens Blvd,Woodside,NY,11377,40.743021,-73.905034,Ericsson,AIR 6449,ACTIVE,2026-07-07
+NY-QNS-008,Queens Blvd - Forest Hills,108-20 Queens Boulevard,Forest Hills,NY,11375,40.721534,-73.844012,Ericsson,AIR 6449,ACTIVE,2026-07-07
+NY-QNS-012,Flushing Main St,37-02 Main Street,Flushing,NY,,40.760011,-73.830023,Samsung,MT6402,ACTIVE,2026-06-18
+NY-QNS-017,Jamaica Ave,160-02 Jamaica Ave,Jamaica,NY,11432,40.704034,-73.798012,Nokia,AirScale,ACTIVE,2026-05-05
+NY-SI-001,St George Ferry Terminal,1 Bay St,Staten Island,NY,10301,40.643045,-74.074012,Ericsson,AIR 3246,ACTIVE,2026-04-04
+NY-SI-006,Staten Island Mall,2655 Richmond Ave,Staten Island,NY,10314,40.581034,-74.166023,Nokia,AirScale,ACTIVE,2026-03-21
+NY-BRONX-040,Pelham Bay Park,3000 Bruckner Blvd,Bronx,NY,10461,40.845023,-73.828011,Ericsson,AIR 3246,DECOMMISSIONED,2026-10-15

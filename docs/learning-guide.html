@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telecom Entity Resolution Lab</title>
+<style>
+:root{
+  --bg:#fbfaf7; --panel:#ffffff; --ink:#1d2430; --muted:#5b6575; --line:#e3e0d8;
+  --accent:#1f5fae; --accent-soft:#e7eff9; --code-bg:#f3f1ec; --code-ink:#1d2430;
+  --good:#1d7a46; --good-soft:#e3f3e9; --bad:#b03a2e; --bad-soft:#f8e6e3; --warn:#9a6a00; --warn-soft:#fbf1d9;
+  --s3:#2f7d32; --spark:#c2571a; --glue:#6a3fa0; --ice:#1f78a8;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171c; --panel:#1b1f26; --ink:#e6e8ec; --muted:#9aa3b2; --line:#2c323c;
+    --accent:#7fb0ef; --accent-soft:#1e2a3a; --code-bg:#20252d; --code-ink:#e6e8ec;
+    --good:#6fcf97; --good-soft:#1b2e24; --bad:#f08a7e; --bad-soft:#3a2220; --warn:#e8c06a; --warn-soft:#352c17;
+    --s3:#7cc47f; --spark:#f0975e; --glue:#b897e6; --ice:#6cc0ea;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171c; --panel:#1b1f26; --ink:#e6e8ec; --muted:#9aa3b2; --line:#2c323c;
+  --accent:#7fb0ef; --accent-soft:#1e2a3a; --code-bg:#20252d; --code-ink:#e6e8ec;
+  --good:#6fcf97; --good-soft:#1b2e24; --bad:#f08a7e; --bad-soft:#3a2220; --warn:#e8c06a; --warn-soft:#352c17;
+  --s3:#7cc47f; --spark:#f0975e; --glue:#b897e6; --ice:#6cc0ea;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent)}
+nav{position:fixed;top:0;left:0;bottom:0;width:270px;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:20px 16px}
+nav h1{font-size:15px;margin:0 0 4px}
+nav .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+nav a{display:block;text-decoration:none;color:var(--ink);font-size:14px;padding:4px 8px;border-radius:6px}
+nav a:hover{background:var(--accent-soft)}
+nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 8px 4px}
+nav a.todo{color:var(--muted)}
+nav a.now::after{content:" ← you are here";font-size:11px;color:var(--warn)}
+#theme{margin-top:16px;font-size:12px;background:none;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 8px;cursor:pointer}
+main{margin-left:270px;padding:32px 48px 120px;max-width:1080px}
+@media (max-width:860px){nav{position:static;width:auto;border-right:0;border-bottom:1px solid var(--line)}main{margin-left:0;padding:20px 16px 80px}}
+h2{font-size:28px;margin:56px 0 8px;padding-top:12px;border-top:2px solid var(--line)}
+h2:first-of-type{border-top:0;margin-top:0}
+h3{font-size:20px;margin:32px 0 8px}
+h4{font-size:16px;margin:22px 0 6px}
+.lead{color:var(--muted);font-size:17px;margin-top:0}
+.pattern{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 18px}
+.pattern span{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pattern span.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:16px 0}
+.why{border-left:4px solid var(--accent)}
+.warn{border-left:4px solid var(--warn);background:var(--warn-soft)}
+.good{border-left:4px solid var(--good)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.tag.why{background:var(--accent-soft);color:var(--accent);border:0}
+.tag.q{background:var(--warn-soft);color:var(--warn)}
+.tag.int{background:var(--good-soft);color:var(--good)}
+.scroll{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;font-size:14px;width:100%}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+td code,th code{font-size:13px}
+.mono td{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;white-space:nowrap}
+.hl{background:var(--warn-soft);color:var(--warn);padding:0 3px;border-radius:3px;font-weight:600}
+.hlbad{background:var(--bad-soft);color:var(--bad);padding:0 3px;border-radius:3px;font-weight:600}
+.hlgood{background:var(--good-soft);color:var(--good);padding:0 3px;border-radius:3px;font-weight:600}
+tr.s01 td:first-child{box-shadow:inset 4px 0 var(--good)}
+tr.s02 td:first-child{box-shadow:inset 4px 0 var(--accent)}
+tr.amb td:first-child{box-shadow:inset 4px 0 var(--warn)}
+pre{background:var(--code-bg);color:var(--code-ink);padding:14px 16px;border-radius:8px;overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:10px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;background:var(--code-bg);padding:1px 4px;border-radius:4px}
+pre code{background:none;padding:0}
+.c{color:var(--muted)}
+.k{color:var(--accent);font-weight:600}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:10px 0;padding:0 14px}
+details[open]{padding-bottom:10px}
+summary{cursor:pointer;padding:10px 0;font-weight:600}
+details.answer summary{color:var(--warn)}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin:16px 0}
+.diagram svg{width:100%;height:auto;display:block}
+svg text{fill:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+svg .muted{fill:var(--muted)}
+svg .box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+svg .s3{stroke:var(--s3)} svg .spark{stroke:var(--spark)} svg .glue{stroke:var(--glue)} svg .ice{stroke:var(--ice)}
+svg .t-s3{fill:var(--s3)} svg .t-spark{fill:var(--spark)} svg .t-glue{fill:var(--glue)} svg .t-ice{fill:var(--ice)}
+svg .arrow{stroke:var(--muted);stroke-width:1.6;fill:none;marker-end:url(#ah)}
+svg .arrowhead{fill:var(--muted)}
+svg .layer{stroke-width:2;rx:10}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.status{font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px}
+.st-done{background:var(--good-soft);color:var(--good)}
+.st-now{background:var(--warn-soft);color:var(--warn)}
+.st-todo{background:var(--code-bg);color:var(--muted)}
+.small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<nav>
+  <h1>Telecom Entity Resolution Lab</h1>
+  <div class="sub">An interactive textbook for this repository. Updated after every module.</div>
+  <div class="grp">Start</div>
+  <a href="#how">How to use this guide</a>
+  <a href="#problem">1. The business problem</a>
+  <a href="#arch">2. Architecture: who does what</a>
+  <a href="#sources">3. The three sources</a>
+  <a href="#roadmap">4. Learning roadmap</a>
+  <div class="grp">Modules</div>
+  <a href="#m0" class="now">M0. Meet the data</a>
+  <a href="#upcoming" class="todo">M1. Bronze landing</a>
+  <a href="#upcoming" class="todo">M2. Standardization</a>
+  <a href="#upcoming" class="todo">M3. In-source deduplication</a>
+  <a href="#upcoming" class="todo">M4. Deterministic matching</a>
+  <a href="#upcoming" class="todo">M5. Blocking</a>
+  <a href="#upcoming" class="todo">M6. Fuzzy matching</a>
+  <a href="#upcoming" class="todo">M7. Probabilistic (Fellegi-Sunter)</a>
+  <a href="#upcoming" class="todo">M8. Clusters, canonical IDs, crosswalk</a>
+  <a href="#upcoming" class="todo">M9. Survivorship</a>
+  <a href="#upcoming" class="todo">M10. Iceberg internals &amp; MERGE</a>
+  <a href="#upcoming" class="todo">M11. Gold &amp; metrics</a>
+  <a href="#upcoming" class="todo">M12. Spark plans &amp; UI</a>
+  <a href="#upcoming" class="todo">M13. Running on AWS</a>
+  <div class="grp">Reference</div>
+  <a href="#interview">Interview questions</a>
+  <a href="#glossary">Glossary</a>
+  <button id="theme" type="button">Toggle light / dark</button>
+</nav>
+
+<main>
+
+<!-- ================================================================== -->
+<h2 id="how">How to use this guide</h2>
+<p class="lead">Every module follows the same path, so you always know where you are:</p>
+<div class="pattern">
+  <span>Business problem</span><span>Concept</span><span>Architecture</span><span>Actual data</span><span>SQL / code</span><span>Execution</span><span>Output</span><span>Internal mechanism</span><span>Interview question</span>
+</div>
+<div class="card">
+  <ul>
+    <li><span class="tag q">TRY IT</span> boxes ask you a question. Answer it yourself first. The answer is folded underneath; open it only after you have an answer.</li>
+    <li>Every output table in this guide was produced by actually running the SQL in this repo. Nothing is invented. Re-run it yourself with the command shown above each output.</li>
+    <li>Records for the running example are marked with a colored left edge:
+      <span class="hlgood">green = site S01</span> (1250 Grand Concourse),
+      <span class="hl">yellow = can't tell</span>, and blue = site S02 (1100 Grand Concourse).</li>
+    <li>Modules that are greyed out in the sidebar have not been taught yet. They appear here as we reach them.</li>
+  </ul>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="problem">1. The business problem</h2>
+<div class="pattern"><span class="on">Business problem</span></div>
+
+<p>A telecom company has one physical thing (a cell site: a tower or rooftop with radios on it) and three departments that each keep their own records about it.</p>
+
+<div class="scroll"><table>
+<tr><th>Department</th><th>System</th><th>What they care about</th><th>Their ID for the site</th></tr>
+<tr><td>Network engineering</td><td>Network Inventory (CSV export)</td><td>What equipment is installed, where, and is it active</td><td><code>NY-BRONX-017</code></td></tr>
+<tr><td>Radio planning</td><td>RF Planning (JSON export)</td><td>Exact coordinates, antennas, radio technology (LTE / 5G)</td><td><code>RF-10017</code></td></tr>
+<tr><td>Field operations</td><td>Work-order system (Parquet export)</td><td>Technician visits: repairs, swaps, maintenance</td><td><code>WO-55001</code>, <code>WO-55002</code>, … (one per visit)</td></tr>
+</table></div>
+
+<p>Each system was built by a different team, at a different time, for a different purpose. Nobody agreed on a shared ID. So there is <b>no column you can join on</b>.</p>
+
+<p>Questions the business asks that <b>none of the three systems can answer alone</b>:</p>
+<ul>
+  <li>"Which sites had an equipment swap in the field, but Inventory still shows the old vendor?" (needs Inventory + Field Ops)</li>
+  <li>"Which 5G sites had more than 2 corrective work orders this year?" (needs RF + Field Ops)</li>
+  <li>"Which RF-planned sites are missing from Inventory?" (needs RF + Inventory, and the ability to say "no match")</li>
+</ul>
+
+<div class="card why"><span class="tag why">WHY</span>
+To answer these, we must first decide which records describe the <b>same physical site</b>. That decision is called <b>entity resolution</b> (also called record linkage). An <b>entity</b> is the real-world thing (the physical site). A <b>record</b> is one row in one system that describes it. One entity can have many records. Entity resolution groups records by entity and gives each group one new ID we control: the <b>canonical ID</b>.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="arch">2. Architecture: who does what</h2>
+<div class="pattern"><span class="on">Architecture</span></div>
+
+<p>Before any technology names, here is the job that must be done, broken into four separate responsibilities. Interviewers often probe whether you know <i>which system is responsible for what</i>.</p>
+
+<div class="scroll"><table>
+<tr><th>Responsibility</th><th>Question it answers</th><th>On AWS</th><th>Locally (on your laptop)</th></tr>
+<tr><td><b style="color:var(--s3)">Storage</b></td><td>Where do the bytes physically live?</td><td><b>Amazon S3</b> (object storage: files addressed by a key like <code>s3://bucket/path/file.parquet</code>)</td><td>A folder on disk: <code>warehouse/</code></td></tr>
+<tr><td><b style="color:var(--spark)">Compute</b></td><td>Who reads the files, runs the SQL, and writes the results?</td><td><b>Apache Spark</b> running on <b>EMR Serverless</b> (AWS starts Spark machines for the job and removes them after)</td><td>Spark in one process on your laptop (<code>local[2]</code>)</td></tr>
+<tr><td><b style="color:var(--ice)">Table format</b></td><td>Which files together make up "the table" right now? What is its schema? What did it look like yesterday?</td><td><b>Apache Iceberg</b>: a set of metadata files stored <i>in S3 next to the data</i>, plus a Java library that runs <i>inside Spark</i></td><td>Same: Iceberg library inside local Spark, metadata files in <code>warehouse/</code></td></tr>
+<tr><td><b style="color:var(--glue)">Catalog</b></td><td>When someone says <code>silver.cell_site</code>, which metadata file is the current one?</td><td><b>AWS Glue Data Catalog</b>: stores table name → location of the current Iceberg metadata file</td><td>An Iceberg "Hadoop catalog": a small text file in the table folder pointing to the current version</td></tr>
+</table></div>
+
+<div class="card warn"><b>A common misunderstanding to avoid in interviews:</b> Iceberg is <b>not a server</b> or a database you log into. It is (1) a specification of how to lay out metadata files, and (2) a library that Spark, Athena, Trino, etc. load. There is no "Iceberg process" managing transactions. Transactions work because every writer follows the same rules, and the <b>catalog</b> performs one atomic step at the end: swap the pointer from the old metadata file to the new one. We will watch this happen with real files in Module 10.</div>
+
+<h3>How the systems connect</h3>
+<div class="diagram">
+<svg viewBox="0 0 960 480" role="img" aria-label="Architecture: sources land in S3; Spark on EMR reads and writes Iceberg tables in S3; Glue Catalog holds pointers to current Iceberg metadata">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+  <!-- sources -->
+  <text x="20" y="30" font-size="13" font-weight="700">Source systems</text>
+  <rect class="box" x="20" y="45" width="170" height="52" rx="8"/><text x="32" y="67" font-size="13" font-weight="600">Network Inventory</text><text x="32" y="86" font-size="12" class="muted">CSV, one row per site</text>
+  <rect class="box" x="20" y="110" width="170" height="52" rx="8"/><text x="32" y="132" font-size="13" font-weight="600">RF Planning</text><text x="32" y="151" font-size="12" class="muted">JSON, nested</text>
+  <rect class="box" x="20" y="175" width="170" height="52" rx="8"/><text x="32" y="197" font-size="13" font-weight="600">Field Operations</text><text x="32" y="216" font-size="12" class="muted">Parquet, one row per visit</text>
+  <!-- S3 -->
+  <rect class="box s3" x="250" y="40" width="430" height="410" rx="12" stroke-width="2"/>
+  <text x="266" y="64" font-size="14" font-weight="700" class="t-s3">Amazon S3 — STORAGE (only stores bytes)</text>
+  <rect class="box" x="266" y="78" width="398" height="58" rx="8"/>
+  <text x="278" y="98" font-size="12.5" font-weight="600">raw/  (files exactly as delivered)</text>
+  <text x="278" y="118" font-size="12" class="muted">network_inventory.csv · rf_planning.json · field_operations.parquet</text>
+  <rect class="box ice" x="266" y="150" width="398" height="286" rx="8" stroke-width="1.5"/>
+  <text x="278" y="170" font-size="12.5" font-weight="700" class="t-ice">warehouse/  (Iceberg tables = data files + metadata files)</text>
+  <rect class="box" x="278" y="182" width="120" height="70" rx="6"/><text x="290" y="202" font-size="12.5" font-weight="700">BRONZE</text><text x="290" y="220" font-size="11" class="muted">raw copy +</text><text x="290" y="235" font-size="11" class="muted">ingest metadata</text>
+  <rect class="box" x="406" y="182" width="120" height="70" rx="6"/><text x="418" y="202" font-size="12.5" font-weight="700">SILVER</text><text x="418" y="220" font-size="11" class="muted">standardized,</text><text x="418" y="235" font-size="11" class="muted">matched, canonical</text>
+  <rect class="box" x="534" y="182" width="118" height="70" rx="6"/><text x="546" y="202" font-size="12.5" font-weight="700">GOLD</text><text x="546" y="220" font-size="11" class="muted">business-facing</text><text x="546" y="235" font-size="11" class="muted">table + metrics</text>
+  <path class="arrow" d="M398,217 L404,217"/><path class="arrow" d="M526,217 L532,217"/>
+  <text x="278" y="280" font-size="12" font-weight="600">Inside ONE Iceberg table folder, e.g. silver/cell_site/</text>
+  <text x="290" y="302" font-size="12" font-family="ui-monospace,Menlo,monospace">data/</text>
+  <text x="330" y="302" font-size="11.5" class="muted">part-00000-….parquet  ← the actual rows</text>
+  <text x="290" y="324" font-size="12" font-family="ui-monospace,Menlo,monospace">metadata/</text>
+  <text x="304" y="344" font-size="11.5" class="muted" font-family="ui-monospace,Menlo,monospace">v1.metadata.json, v2.metadata.json  ← schema + snapshots</text>
+  <text x="304" y="364" font-size="11.5" class="muted" font-family="ui-monospace,Menlo,monospace">snap-….avro  ← manifest list (one per snapshot)</text>
+  <text x="304" y="384" font-size="11.5" class="muted" font-family="ui-monospace,Menlo,monospace">….avro  ← manifests (list data files + column stats)</text>
+  <text x="278" y="418" font-size="11.5" class="muted">S3 has no idea these files form a "table". It just stores objects.</text>
+  <!-- Spark -->
+  <rect class="box spark" x="730" y="40" width="210" height="150" rx="12" stroke-width="2"/>
+  <text x="746" y="64" font-size="14" font-weight="700" class="t-spark">EMR Serverless</text>
+  <text x="746" y="82" font-size="13" font-weight="700" class="t-spark">+ Apache Spark</text>
+  <text x="746" y="102" font-size="12" class="muted">COMPUTE: runs our SQL.</text>
+  <rect class="box ice" x="746" y="114" width="178" height="60" rx="6"/>
+  <text x="756" y="134" font-size="12" font-weight="700" class="t-ice">Iceberg library</text>
+  <text x="756" y="152" font-size="11" class="muted">(a jar loaded by Spark;</text>
+  <text x="756" y="166" font-size="11" class="muted">writes metadata files)</text>
+  <!-- Glue -->
+  <rect class="box glue" x="730" y="270" width="210" height="150" rx="12" stroke-width="2"/>
+  <text x="746" y="294" font-size="14" font-weight="700" class="t-glue">Glue Data Catalog</text>
+  <text x="746" y="313" font-size="12" class="muted">CATALOG: table name →</text>
+  <text x="746" y="329" font-size="12" class="muted">current metadata file</text>
+  <rect class="box" x="742" y="342" width="186" height="62" rx="6"/>
+  <text x="750" y="362" font-size="11" font-family="ui-monospace,Menlo,monospace">silver.cell_site</text>
+  <text x="750" y="380" font-size="11" class="muted" font-family="ui-monospace,Menlo,monospace">metadata_location =</text>
+  <text x="750" y="396" font-size="11" class="muted" font-family="ui-monospace,Menlo,monospace">…/v2.metadata.json</text>
+  <!-- arrows -->
+  <path class="arrow" d="M190,71 L262,100"/><path class="arrow" d="M190,136 L262,110"/><path class="arrow" d="M190,201 L262,120"/>
+  <text x="200" y="40" font-size="11" class="muted">upload</text>
+  <path class="arrow" d="M728,100 L668,100"/><text x="686" y="92" font-size="11" class="muted">read</text>
+  <path class="arrow" d="M728,150 L668,210"/><text x="684" y="160" font-size="11" class="muted">write</text>
+  <path class="arrow" d="M800,192 L800,266"/><text x="792" y="222" font-size="11" class="muted" text-anchor="end">① where is the</text><text x="792" y="236" font-size="11" class="muted" text-anchor="end">current version?</text>
+  <path class="arrow" d="M880,266 L880,194"/><text x="888" y="222" font-size="11" class="muted">④ commit:</text><text x="888" y="236" font-size="11" class="muted">swap pointer</text>
+  <text x="20" y="466" font-size="11.5" class="muted">② Spark reads data + metadata files from S3   ·   ③ Spark writes NEW files to S3   ·   ④ Spark asks Glue to atomically swap the pointer (the commit)</text>
+</svg>
+</div>
+
+<p>Read the numbered steps as "what happens when one Spark job updates one Iceberg table":</p>
+<ol>
+  <li><b>Spark asks Glue</b>: "Where is the current metadata file for <code>silver.cell_site</code>?" Glue answers with an S3 path.</li>
+  <li><b>Spark reads from S3</b>: that metadata file, then the manifests it points to, then only the data files it needs.</li>
+  <li><b>Spark writes new files to S3</b>: new data files, new manifests, and a brand-new metadata file. It never edits existing files. At this point readers still see the old version, because Glue still points to the old metadata file.</li>
+  <li><b>Spark asks Glue to swap the pointer</b> from the old metadata file to the new one, <i>only if nobody else changed it in the meantime</i>. This single swap is the commit. If the job crashed before step 4, the new files are just unreferenced garbage and the table is unchanged.</li>
+</ol>
+<p class="small">You don't need to understand all of this yet. Module 10 shows each of these files on disk. For now, remember the four responsibilities.</p>
+
+<h3>Bronze, Silver, Gold for this project</h3>
+<div class="scroll"><table>
+<tr><th>Layer</th><th>Purpose</th><th>Rule</th><th>Tables we will build</th></tr>
+<tr><td><b>Bronze</b></td><td>A faithful copy of what each source sent, so we can always re-run later steps</td><td>Don't change values. Add metadata about the load (file name, load time, batch ID).</td><td><code>bronze.network_inventory</code>, <code>bronze.rf_planning</code>, <code>bronze.field_operations</code></td></tr>
+<tr><td><b>Silver</b></td><td>The trusted, integrated view: one record per real-world site</td><td>Standardize, deduplicate, match across sources, resolve conflicts. Every decision is recorded.</td><td><code>*_std</code> (standardized), <code>candidate_pairs</code>, <code>match_scores</code>, <code>site_crosswalk</code>, <code>match_audit</code>, <code>manual_review_queue</code>, <code>cell_site</code> (canonical)</td></tr>
+<tr><td><b>Gold</b></td><td>Answers to business questions, in the shape the business wants</td><td>Built only from Silver. Simple, documented, stable column names.</td><td><code>gold.cell_site_unified</code>, a few metric tables</td></tr>
+</table></div>
+
+<h3>Local and AWS share the same SQL</h3>
+<p>Every SQL file uses placeholders such as <code>${RAW_ROOT}</code>. <code>jobs/run_sql.py</code> replaces them with values from <code>conf/local.env</code> today (a local folder) and from <code>conf/aws.env</code> later (an <code>s3://</code> path). The business logic is written once.</p>
+
+<!-- ================================================================== -->
+<h2 id="sources">3. The three sources</h2>
+<div class="pattern"><span class="on">Actual data</span></div>
+
+<p>The data is small on purpose: 24 + 24 + 30 = <b>78 records</b> describing <b>24 physical sites</b> in New York City. Every record was written by hand to contain a specific, realistic problem. The file <code>data/ground_truth/ground_truth.csv</code> is the answer key: for each record, which physical site it really is, and what lesson it contains. In a real company you don't have this file; you create a small one by having people label pairs by hand (Module 7 explains why that matters).</p>
+
+<h3>Same attribute, three different shapes</h3>
+<div class="scroll"><table>
+<tr><th>Attribute</th><th>Network Inventory (CSV)</th><th>RF Planning (JSON)</th><th>Field Operations (Parquet)</th></tr>
+<tr><td><b>Grain</b> (what one row means)</td><td>one site (supposedly)</td><td>one version of a site plan</td><td><b>one technician visit</b> (many per site)</td></tr>
+<tr><td>Identifier</td><td><code>site_id</code></td><td><code>rf_site_id</code></td><td><code>work_order_id</code> (identifies a visit, not a site)</td></tr>
+<tr><td>Name</td><td><code>site_name</code></td><td><code>site_description</code></td><td><code>site_description</code> (typed on a phone)</td></tr>
+<tr><td>Address</td><td>split: <code>street_address</code>, <code>city</code>, <code>state</code>, <code>zip_code</code></td><td><span class="hlbad">none</span></td><td>one free-text string <code>technician_address</code></td></tr>
+<tr><td>Coordinates</td><td><code>latitude</code>, <code>longitude</code> (as text)</td><td>nested: <code>location.latitude</code>, <code>location.longitude</code></td><td><span class="hlbad">none</span></td></tr>
+<tr><td>Area</td><td><code>city</code> (sometimes a neighborhood, e.g. "Woodside") + ZIP</td><td><code>location.region</code> code, e.g. <code>NYC-BX</code></td><td>inside the address string</td></tr>
+<tr><td>Equipment</td><td><code>equipment_vendor</code> + <code>equipment_model</code></td><td><code>antennas[].model</code> (array of structs)</td><td><code>equipment_info</code> free text</td></tr>
+<tr><td>Change time</td><td><code>last_updated</code> (text, two date formats)</td><td><code>last_modified</code> (ISO-8601 text)</td><td><code>record_updated_at</code> (real TIMESTAMP)</td></tr>
+</table></div>
+
+<div class="card why"><span class="tag why">WHY THIS TABLE MATTERS</span>
+Look at which evidence each <i>pair</i> of sources shares:
+<ul>
+<li><b>Inventory ↔ RF</b>: name, coordinates, borough. Strong.</li>
+<li><b>Inventory ↔ Field Ops</b>: name, street address, ZIP. Strong.</li>
+<li><b>RF ↔ Field Ops</b>: <b>only the name</b> (RF has no address, Field Ops has no coordinates). Weak.</li>
+</ul>
+So the evidence we can use <b>depends on the pair of sources</b>. That is why entity resolution is not one rule; it is a set of comparisons whose evidence differs. Keep this in mind for the second TRY-IT question below.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="roadmap">4. Learning roadmap</h2>
+<p>One concept at a time. We only move on when the current module makes sense to you.</p>
+<div class="scroll"><table>
+<tr><th>#</th><th>Module</th><th>The question it answers</th><th>Status</th></tr>
+<tr><td>M0</td><td>Meet the data</td><td>What do the raw records look like, and why can't we just join them?</td><td><span class="status st-now">in progress</span></td></tr>
+<tr><td>M1</td><td>Bronze landing</td><td>How do we load raw data so it can always be reprocessed? (first Iceberg tables)</td><td><span class="status st-todo">next</span></td></tr>
+<tr><td>M2</td><td>Standardization</td><td>How do we make "1250 GRAND CONCRS BX" and "1250 Grand Concourse, Bronx" comparable?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M3</td><td>In-source deduplication</td><td>How do we handle the same ID loaded twice, and old versions of a record?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M4</td><td>Deterministic matching</td><td>Which records match exactly on a rule, using a normal SQL join?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M5</td><td>Blocking</td><td>Why can't we compare every record with every other, and how do we avoid it?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M6</td><td>Fuzzy matching</td><td>How similar are two strings? (Levenshtein, Jaro-Winkler, tokens, addresses)</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M7</td><td>Probabilistic matching</td><td>How do we combine many weak clues into one decision? (Fellegi-Sunter, m/u, weights, thresholds)</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M8</td><td>Clusters, canonical IDs, crosswalk</td><td>How do pairwise matches become groups, and groups become one ID?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M9</td><td>Survivorship</td><td>When sources disagree, which value wins, and why?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M10</td><td>Iceberg internals &amp; MERGE</td><td>A new batch arrives. How do we update Silver safely? What happens in the files and the catalog?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M11</td><td>Gold &amp; metrics</td><td>What does the business actually consume?</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M12</td><td>Spark plans &amp; UI</td><td>What does Spark physically do with our SQL? (reuses your <code>spark-perf-lab</code>)</td><td><span class="status st-todo">todo</span></td></tr>
+<tr><td>M13</td><td>Running on AWS</td><td>Same SQL on S3 + EMR Serverless + Glue. Costs and IAM shown first, created only after approval.</td><td><span class="status st-todo">todo</span></td></tr>
+</table></div>
+
+<!-- ================================================================== -->
+<h2 id="m0">M0. Meet the data</h2>
+<div class="pattern"><span class="on">Business problem</span><span class="on">Actual data</span><span class="on">SQL / code</span><span class="on">Execution</span><span class="on">Output</span><span class="on">Internal mechanism</span><span class="on">Interview question</span></div>
+
+<h3>Business problem</h3>
+<p>Your manager says: "Give me one record per cell site with its current equipment." Before writing any matching logic, a good engineer first <b>looks at the raw data</b> to see what kinds of differences exist. We will look at one neighborhood: every record that mentions "Concourse" (a major avenue in the Bronx).</p>
+
+<h3>SQL</h3>
+<p>Run: <code>python jobs/run_sql.py sql/bronze/00_peek_sources.sql</code></p>
+<pre><code><span class="c">-- Register the CSV folder as a view. Nothing is read or copied yet.</span>
+<span class="k">CREATE OR REPLACE TEMPORARY VIEW</span> raw_inventory
+<span class="k">USING</span> csv
+<span class="k">OPTIONS</span> (path '${RAW_ROOT}/network_inventory', header 'true', inferSchema 'false');
+
+<span class="k">CREATE OR REPLACE TEMPORARY VIEW</span> raw_rf        <span class="k">USING</span> json    <span class="k">OPTIONS</span> (path '${RAW_ROOT}/rf_planning');
+<span class="k">CREATE OR REPLACE TEMPORARY VIEW</span> raw_field_ops <span class="k">USING</span> parquet <span class="k">OPTIONS</span> (path '${RAW_ROOT}/field_operations');</code></pre>
+
+<div class="scroll"><table>
+<tr><th>Clause</th><th>What it does</th></tr>
+<tr><td><code>CREATE OR REPLACE TEMPORARY VIEW raw_inventory</code></td><td>Gives a name to "the data at this path". A <b>temporary view</b> exists only while this Spark session is running. It stores no data; it stores the instructions for reading the data.</td></tr>
+<tr><td><code>USING csv</code> / <code>json</code> / <code>parquet</code></td><td>Tells Spark which <b>reader</b> (file-format parser) to use.</td></tr>
+<tr><td><code>path '…/network_inventory'</code></td><td>A <i>folder</i>, not a file. Spark reads every file in it. This matters later: in S3, a "table" in plain Parquet is just "all files under a prefix".</td></tr>
+<tr><td><code>header 'true'</code></td><td>The first line contains column names.</td></tr>
+<tr><td><code>inferSchema 'false'</code></td><td>Keep every column as STRING. We will discuss why in the TRY-IT below.</td></tr>
+</table></div>
+
+<h3>Execution: what Spark did inside</h3>
+<p>The three sources reach Spark with very different amounts of type information. This is the real <code>DESCRIBE</code> output:</p>
+<div class="grid2">
+<div class="scroll"><table class="mono">
+<tr><th colspan="2">raw_inventory (CSV)</th></tr>
+<tr><td>site_id</td><td>string</td></tr><tr><td>site_name</td><td>string</td></tr><tr><td>street_address</td><td>string</td></tr><tr><td>city</td><td>string</td></tr><tr><td>state</td><td>string</td></tr><tr><td>zip_code</td><td>string</td></tr><tr><td>latitude</td><td><span class="hl">string</span></td></tr><tr><td>longitude</td><td><span class="hl">string</span></td></tr><tr><td>equipment_vendor</td><td>string</td></tr><tr><td>equipment_model</td><td>string</td></tr><tr><td>site_status</td><td>string</td></tr><tr><td>last_updated</td><td><span class="hl">string</span></td></tr>
+</table></div>
+<div>
+<div class="scroll"><table class="mono">
+<tr><th colspan="2">raw_rf (JSON)</th></tr>
+<tr><td>antennas</td><td>array&lt;struct&lt;azimuth_deg:bigint, height_m:double, model:string, sector:string&gt;&gt;</td></tr>
+<tr><td>last_modified</td><td><span class="hl">string</span></td></tr>
+<tr><td>location</td><td>struct&lt;latitude:double, longitude:double, region:string&gt;</td></tr>
+<tr><td>planning_status</td><td>string</td></tr><tr><td>rf_site_id</td><td>string</td></tr><tr><td>site_description</td><td>string</td></tr><tr><td>technology</td><td>array&lt;string&gt;</td></tr>
+</table></div>
+<div class="scroll"><table class="mono">
+<tr><th colspan="2">raw_field_ops (Parquet)</th></tr>
+<tr><td>work_order_id … equipment_info</td><td>string</td></tr>
+<tr><td>opened_at, closed_at, record_updated_at</td><td><span class="hlgood">timestamp_ntz</span></td></tr>
+</table></div>
+</div>
+</div>
+<div class="scroll"><table>
+<tr><th>Format</th><th>Where the schema comes from</th><th>Consequence</th></tr>
+<tr><td>CSV</td><td>Nowhere. A CSV file is just text separated by commas.</td><td>Every value is a string. <code>40.834712</code> is the text "40.834712", not a number.</td></tr>
+<tr><td>JSON</td><td>Spark <b>reads the whole file once</b> just to guess types (a "schema inference pass"), then reads it again for the query.</td><td>Numbers became double/bigint, nested objects became <code>struct</code>, lists became <code>array</code>. Columns are sorted alphabetically. The timestamp stayed a string, because JSON has no date type.</td></tr>
+<tr><td>Parquet</td><td>Stored in the <b>file footer</b> (the last bytes of the file). Spark reads only the footer to learn the schema.</td><td>Real types, including timestamps. <code>timestamp_ntz</code> means "timestamp without time zone": a wall-clock time with no zone attached.</td></tr>
+</table></div>
+
+<h3>Output 1: counts</h3>
+<div class="scroll"><table class="mono">
+<tr><th>source</th><th>row_count</th><th>distinct_ids</th></tr>
+<tr><td>NETWORK_INVENTORY</td><td>24</td><td>23</td></tr>
+<tr><td>RF_PLANNING</td><td>24</td><td>23</td></tr>
+<tr><td>FIELD_OPERATIONS</td><td>30</td><td>29</td></tr>
+</table></div>
+<p>In each source, one ID appears twice. The reasons are different in each source (an exact duplicate load, an older plan version, a work order re-sent with a new status). Module 3 handles them. Note also: 29 distinct work orders does <b>not</b> mean 29 sites, because a work order is a visit.</p>
+
+<h3>Output 2: every "Concourse" record, from all three systems</h3>
+<p>Real output, with the differences highlighted. The colored left edge shows the ground truth. <b>Try to decide the groups yourself before reading the colors.</b></p>
+
+<h4>Network Inventory</h4>
+<div class="scroll"><table class="mono">
+<tr><th>site_id</th><th>site_name</th><th>street_address</th><th>zip_code</th><th>latitude</th><th>longitude</th><th>equipment_model</th><th>last_updated</th></tr>
+<tr class="s01"><td>NY-BRONX-017</td><td>BRONX GRAND CONCOURSE</td><td>1250 Grand Concourse</td><td>10456</td><td>40.834712</td><td>-73.916521</td><td>AIR 6449</td><td>2026-09-12</td></tr>
+<tr class="s01"><td><span class="hl">NY-BX-0017</span></td><td>Bronx - Grand Concourse <span class="hl">(legacy)</span></td><td>1250 GRAND CONCOURSE</td><td><span class="hl">10456-2201</span></td><td><span class="hl">40.8347</span></td><td><span class="hl">-73.9165</span></td><td><span class="hl">AIR 3246</span></td><td>2023-02-01</td></tr>
+<tr class="s02"><td>NY-BRONX-018</td><td>Grand Concourse South</td><td><span class="hl">1100</span> Grand Concourse</td><td>10456</td><td>40.829874</td><td>-73.919612</td><td>AirScale</td><td>2026-08-30</td></tr>
+</table></div>
+
+<h4>RF Planning</h4>
+<div class="scroll"><table class="mono">
+<tr><th>rf_site_id</th><th>site_description</th><th>latitude</th><th>longitude</th><th>region</th><th>technology</th><th>antenna_count</th><th>last_modified</th></tr>
+<tr class="s01"><td>RF-10017</td><td>Bronx Grand Concourse</td><td>40.83472</td><td>-73.91648</td><td>NYC-BX</td><td>[LTE, 5G-NR]</td><td>3</td><td>2026-09-20T10:00:00Z</td></tr>
+<tr class="s02"><td>RF-10018</td><td>Grand Concourse <span class="hl">&amp; E 167th</span></td><td>40.82991</td><td>-73.91958</td><td>NYC-BX</td><td>[LTE]</td><td>3</td><td>2026-08-01T12:00:00Z</td></tr>
+</table></div>
+
+<h4>Field Operations</h4>
+<div class="scroll"><table class="mono">
+<tr><th>work_order_id</th><th>site_description</th><th>technician_address</th><th>work_type</th><th>equipment_info</th><th>record_updated_at</th></tr>
+<tr class="s01"><td>WO-55001</td><td><span class="hl">Bx</span> Grand Concourse <span class="hl">Site</span></td><td>1250 Grand Concourse, Bronx, NY 10456</td><td>PREVENTIVE</td><td>Ericsson AIR 6449</td><td>2026-03-02 13:41:00</td></tr>
+<tr class="amb"><td>WO-55028</td><td>Concourse</td><td><span class="hlbad">Grand Concourse, Bronx NY</span></td><td>CORRECTIVE</td><td>Ericsson AIR 6449</td><td>2026-05-14 12:05:00</td></tr>
+<tr class="s02"><td>WO-55003</td><td>Grand Concourse S.</td><td>1100 Grand Concourse Bronx NY 10456</td><td>CORRECTIVE</td><td>Nokia AirScale</td><td>2026-08-11 11:02:00</td></tr>
+<tr class="s01"><td>WO-55002</td><td>GRAND CONCOURSE - BRONX</td><td>1250 GRAND <span class="hl">CONCRS BX</span> NY 10456</td><td>EQUIPMENT_SWAP</td><td><span class="hlbad">Nokia AirScale (replaced Ericsson AIR 6449)</span></td><td>2026-10-06 16:25:00</td></tr>
+</table></div>
+
+<div class="card"><span class="tag q">TRY IT 1</span>
+These are 9 records. <b>How many physical sites are they, which records belong together, and what evidence did you use for each decision?</b> Is there any record you cannot place?
+</div>
+<details class="answer"><summary>Show answer (after you've tried)</summary>
+<p><b>2 physical sites, plus 1 record we cannot place with confidence.</b></p>
+<ul>
+<li><b>S01, 1250 Grand Concourse</b>: NY-BRONX-017, NY-BX-0017, RF-10017, WO-55001, WO-55002.
+  <ul>
+    <li>NY-BRONX-017 ↔ NY-BX-0017: same house number + street + base ZIP, coordinates 2.2 m apart. This is a duplicate <i>inside one source</i> with two different IDs. A legacy migration created a second ID.</li>
+    <li>NY-BRONX-017 ↔ RF-10017: coordinates <b>3.6 m</b> apart, both in the Bronx, nearly identical names.</li>
+    <li>NY-BRONX-017 ↔ WO-55001 / WO-55002: house number 1250, same street (after you realize "CONCRS" is a misspelling of "Concourse" and "BX" is "Bronx"), same ZIP.</li>
+  </ul></li>
+<li><b>S02, 1100 Grand Concourse</b>: NY-BRONX-018, RF-10018, WO-55003. These are <b>597 m</b> from S01, on the same street, in the same ZIP. The name "Grand Concourse" appears in all of them. If you matched on name alone, you would merge two different sites. That error is called a <b>false positive</b>.</li>
+<li><b>WO-55028 cannot be placed</b>: "Grand Concourse, Bronx NY" has no house number and no ZIP. The equipment (Ericsson AIR 6449) hints S01, because S02 has Nokia, but equipment changes over time and many sites have the same model. A responsible pipeline does <b>not guess</b>. It sends this record to a <b>manual review queue</b> (Module 8).</li>
+</ul>
+<p>Notice what you did in your head. You (1) mentally cleaned the text ("BX" → "Bronx"), (2) compared several attributes, (3) weighed them (a matching house number counts more than a matching street name, because many sites are on Grand Concourse), and (4) refused to decide when evidence was too weak. Those four steps are exactly Modules 2, 6, 7 and 8. We will turn your intuition into SQL.</p>
+</details>
+
+<div class="card"><span class="tag q">TRY IT 2</span>
+RF-10017 has coordinates but no address. WO-55001 has an address but no coordinates. Their names are "Bronx Grand Concourse" and "Bx Grand Concourse Site". <b>How could the pipeline confidently conclude they are the same site?</b>
+</div>
+<details class="answer"><summary>Show answer (after you've tried)</summary>
+<p>Directly, it mostly can't: the only shared evidence is the name, and names are weak (RF-10018 is also "Grand Concourse …").</p>
+<p>But <b>indirectly</b> it can. RF-10017 matches NY-BRONX-017 strongly (coordinates 3.6 m apart). WO-55001 matches NY-BRONX-017 strongly (same address and ZIP). If A = B and B = C, then A = C. The inventory record acts as a <b>bridge</b>, because it is the only source with <i>both</i> coordinates and an address.</p>
+<p>This is why entity resolution produces <b>pairwise matches first</b> and then groups them into <b>clusters</b> (the technical term is "connected components" of a graph where records are points and matches are lines). Module 8 builds this. It also shows the danger: one wrong pairwise match can chain two separate clusters together.</p>
+</details>
+
+<h3>Internal mechanism: why Bronze keeps everything as text</h3>
+<div class="card"><span class="tag q">TRY IT 3 (we'll discuss it at the start of Module 1)</span>
+We read the CSV with <code>inferSchema 'false'</code>, so <code>latitude</code> is a string. Why might we <b>want</b> Bronze to keep latitude as a string, instead of converting it to a number immediately? Think about what would happen to a value like <code>"40.8347 N"</code> or an empty string.
+</div>
+
+<h3 id="m0-interview">Interview question for this module</h3>
+<div class="card"><span class="tag int">INTERVIEW</span> <b>"You have three systems describing the same entities with no shared key. Where do you start?"</b>
+<details><summary>A natural answer</summary>
+<p>"Before writing any matching logic I profile the sources, because the right rules depend on the evidence each source has. First I check the <b>grain</b> of each source: in our telecom data, inventory had one row per site, but field operations had one row per work order, so many rows mapped to one site. Then I list which attributes each <i>pair</i> of sources shares. Inventory and RF shared coordinates; inventory and field ops shared addresses; RF and field ops only shared a free-text name. That told us inventory would act as the bridge, and that RF-to-field-ops links would mostly come through it. I also look for duplicates inside each source and for data-quality problems such as swapped coordinates, because those break matching later."</p>
+</details>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="upcoming">Upcoming modules</h2>
+<p>These sections will be filled in, with real outputs, as we reach each module.</p>
+<div class="card"><b>M1. Bronze landing.</b> Load the three raw sources into Iceberg tables without changing values, adding <code>_source_file</code>, <code>_ingested_at</code> and <code>_batch_id</code>. Then open the <code>warehouse/</code> folder and look at the first Iceberg metadata file.</div>
+<div class="card"><b>M2–M3.</b> Standardization (before/after records for names, addresses, coordinates, ZIPs, dates) and in-source deduplication with window functions (<code>ROW_NUMBER() OVER (PARTITION BY … ORDER BY …)</code>).</div>
+<div class="card"><b>M4–M7.</b> Deterministic SQL joins → why fuzzy comparisons force blocking (count of comparisons before/after) → Levenshtein, Jaro-Winkler, token and address similarity with real scores → Fellegi-Sunter from first principles with a worked calculation on one pair.</div>
+<div class="card"><b>M8–M9.</b> Clusters, canonical IDs, the crosswalk, audit and manual-review tables, and survivorship rules (which source wins which attribute, and why).</div>
+<div class="card"><b>M10.</b> Iceberg from the problem upward: what goes wrong with plain Parquet in S3 (update, delete, concurrent writers, failed jobs, versions, schema changes), then metadata files, manifests, snapshots, atomic commits, MERGE INTO internals, time travel, schema evolution and compaction, using the real files on disk.</div>
+<div class="card"><b>M11–M13.</b> Gold tables and metrics, Spark execution plans (reusing <code>spark-perf-lab</code>'s Spark UI guide), and the AWS deployment: S3, Glue, EMR Serverless, IAM. A resource list and a cost estimate come first; nothing is created without your approval.</div>
+
+<!-- ================================================================== -->
+<h2 id="interview">Interview questions (grows every module)</h2>
+<details><summary>What is entity resolution, in one sentence an interviewer will like?</summary>
+<p>"Deciding which records, across or within systems, describe the same real-world thing when there's no reliable shared key, and giving each real-world thing one stable ID with a traceable mapping back to every source record."</p></details>
+<details><summary>Which AWS component stores data, which processes it, which keeps table metadata, and which manages transactions?</summary>
+<p>S3 stores the bytes, both data files and Iceberg metadata files. Spark on EMR processes the data. Iceberg defines the table metadata (schema, snapshots, the list of data files), written as files in S3 by the Iceberg library running inside Spark. The Glue Data Catalog maps a table name to its current metadata file. There is no central transaction manager: each writer writes new files and then asks the catalog to atomically swap the pointer, which succeeds only if no one else committed first. That is optimistic concurrency.</p></details>
+<details><summary>Why does Field Operations have more rows than there are sites?</summary>
+<p>Because its grain is a work order, not a site. One site gets many visits. If you joined inventory to field ops and counted rows, you'd over-count sites. Always state the grain of a table before joining it.</p></details>
+
+<!-- ================================================================== -->
+<h2 id="glossary">Glossary (terms in the order they appeared)</h2>
+<div class="scroll"><table>
+<tr><th>Term</th><th>Meaning in this project</th></tr>
+<tr><td>Entity</td><td>A real-world thing: here, one physical cell site.</td></tr>
+<tr><td>Record</td><td>One row in one source system that describes an entity.</td></tr>
+<tr><td>Entity resolution / record linkage</td><td>Grouping records by the entity they describe.</td></tr>
+<tr><td>Canonical ID</td><td>The new ID <i>we</i> assign to each entity, independent of any source system's ID.</td></tr>
+<tr><td>Grain</td><td>What one row of a table represents (one site, one visit, one plan version).</td></tr>
+<tr><td>Object storage (S3)</td><td>Stores files ("objects") under keys. No tables, no transactions, no in-place edits.</td></tr>
+<tr><td>Table format (Iceberg)</td><td>Rules plus metadata files that turn a set of data files into a table with a schema, versions and safe commits.</td></tr>
+<tr><td>Catalog (Glue)</td><td>Maps a table name to the location of its current metadata.</td></tr>
+<tr><td>Temporary view</td><td>A named query that exists only in the current Spark session. It stores no data.</td></tr>
+<tr><td>Schema inference</td><td>Spark reading data to guess column types (JSON: a full extra pass; CSV with <code>inferSchema 'true'</code>: also an extra pass).</td></tr>
+<tr><td>Parquet footer</td><td>The end of a Parquet file, which holds the schema and per-column statistics.</td></tr>
+<tr><td><code>timestamp_ntz</code></td><td>Timestamp with no time zone attached.</td></tr>
+<tr><td>False positive</td><td>Saying two records match when they are different entities (e.g. merging S01 and S02).</td></tr>
+<tr><td>False negative</td><td>Failing to match two records of the same entity.</td></tr>
+<tr><td>Manual review queue</td><td>Records or pairs the pipeline refuses to decide automatically.</td></tr>
+<tr><td>Cluster / connected component</td><td>A group of records linked by a chain of pairwise matches.</td></tr>
+</table></div>
+
+<p class="small">Last updated: Module 0. Source of every output: <code>sql/bronze/00_peek_sources.sql</code> run locally on PySpark 4.0.5.</p>
+</main>
+
+<script>
+(function(){
+  var btn=document.getElementById('theme'), root=document.documentElement, key='er-guide-theme';
+  try{var saved=localStorage.getItem(key); if(saved) root.setAttribute('data-theme',saved);}catch(e){}
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+    var next=cur==='dark'?'light':'dark'; root.setAttribute('data-theme',next);
+    try{localStorage.setItem(key,next);}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

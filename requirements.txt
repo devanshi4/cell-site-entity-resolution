@@ -1,0 +1,7 @@
+# Same Spark version as ../spark-perf-lab so one Java (17/21) + one Python works for both labs.
+pyspark==4.0.5
+# Writes the Field Operations Parquet file in the data generator, and Spark<->pandas conversion.
+pyarrow>=15
+pandas>=2.0
+# String-similarity algorithms (Levenshtein, Jaro-Winkler) used in the fuzzy-matching module.
+jellyfish>=1.0

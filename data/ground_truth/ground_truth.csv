@@ -1,0 +1,79 @@
+source_system,source_record_id,true_site_key,lesson
+NETWORK_INVENTORY,NY-BRONX-017,S01,Primary record for the running example site
+NETWORK_INVENTORY,NY-BX-0017,S01,"Entity duplicate INSIDE one source: legacy ID from an old migration, ZIP+4, 4-decimal coordinates, stale equipment"
+NETWORK_INVENTORY,NY-BRONX-018,S02,"Hard negative: same street, same ZIP, ~560 m from S01, different site"
+NETWORK_INVENTORY,NY-BRONX-022,S03,Punctuation in name; 'Avenue' spelled out
+NETWORK_INVENTORY,NY-BRONX-031,S04,Trailing period in 'Ave.'
+NETWORK_INVENTORY,NY-BRONX-009,S05,Directional abbreviation 'E'
+NETWORK_INVENTORY,NY-MANH-004,S06,Same street address as S10 in Brooklyn
+NETWORK_INVENTORY,NY-MANH-006,S24,"Hard negative: ~100 m from S06, same ZIP, similar name 'Times Sq'"
+NETWORK_INVENTORY,NY-MANH-011,S07,Name differs from RF ('Morningside Hts')
+NETWORK_INVENTORY,NY-MANH-019,S08,Leading/trailing spaces; US date format
+NETWORK_INVENTORY,NY-MANH-019,S08,EXACT duplicate row (file loaded twice)
+NETWORK_INVENTORY,NY-MANH-027,S09,RF coordinates for this site are ~190 m off
+NETWORK_INVENTORY,NY-MANH-033,S21,"Exists ONLY in inventory (no RF plan, no work orders)"
+NETWORK_INVENTORY,NY-BKLYN-002,S10,Same street address as S06 but different borough: address alone is NOT a key
+NETWORK_INVENTORY,NY-BKLYN-009,S11,Missing coordinates (filled from RF during survivorship)
+NETWORK_INVENTORY,NY-BKLYN-014,S12,'Main St' also exists in Flushing and Roosevelt Island
+NETWORK_INVENTORY,NY-BKLYN-020,S13,Latitude and longitude SWAPPED
+NETWORK_INVENTORY,NY-QNS-003,S14,"Queens hyphenated house number; city is a neighborhood, not the borough"
+NETWORK_INVENTORY,NY-QNS-008,S15,Name very similar to S14 (only neighborhood differs)
+NETWORK_INVENTORY,NY-QNS-012,S16,Missing ZIP code
+NETWORK_INVENTORY,NY-QNS-017,S17,RF record for this site has no coordinates
+NETWORK_INVENTORY,NY-SI-001,S18,'St' means Saint in the name but Street in the address
+NETWORK_INVENTORY,NY-SI-006,S19,Clean record
+NETWORK_INVENTORY,NY-BRONX-040,S23,"Decommissioned site: still must be resolved, flagged in Gold"
+RF_PLANNING,RF-10017,S01,"Running example: name matches inventory, coordinates ~4 m apart"
+RF_PLANNING,RF-10018,S02,"Described by cross street, not by 'South'"
+RF_PLANNING,RF-10022,S03,"Abbreviations 'Rd', 'Av'"
+RF_PLANNING,RF-10031,S04,Very short name; coordinates carry the match
+RF_PLANNING,RF-10009,S05,Truncated word 'Stad.'
+RF_PLANNING,RF-10231,S06,OLD version of RF-10231 (same ID appears twice)
+RF_PLANNING,RF-10231,S06,NEW version of RF-10231: keep the latest by last_modified
+RF_PLANNING,RF-10232,S24,Hard negative vs S06 (~100 m)
+RF_PLANNING,RF-10240,S07,Different neighborhood name than inventory
+RF_PLANNING,RF-10245,S08,Short name
+RF_PLANNING,RF-10251,S09,"Coordinates ~190 m off: distance must be graded, not exact"
+RF_PLANNING,RF-20002,S10,Name identical to inventory
+RF_PLANNING,RF-20009,S11,Word order differs from inventory: token similarity helps
+RF_PLANNING,RF-20014,S12,Mixed case 'Dumbo' vs 'DUMBO'
+RF_PLANNING,RF-20020,S13,Correct coordinates (inventory has them swapped)
+RF_PLANNING,RF-30003,S14,Word order differs
+RF_PLANNING,RF-30008,S15,Similar to RF-30003 except neighborhood
+RF_PLANNING,RF-30012,S16,One-word name
+RF_PLANNING,RF-30017,S17,NO coordinates: only weak name evidence -> likely manual review
+RF_PLANNING,RF-30020,S22,Site missing from inventory (data-quality gap)
+RF_PLANNING,RF-40001,S18,'St.' = Saint
+RF_PLANNING,RF-40006,S19,Acronym 'SI' = Staten Island
+RF_PLANNING,RF-10050,S20,"Planned, not built: exists ONLY in RF; no antennas yet"
+RF_PLANNING,RF-10040,S23,Retired site
+FIELD_OPERATIONS,WO-55001,S01,"Running example: 'Bx' abbreviation, 'Site' noise word"
+FIELD_OPERATIONS,WO-55002,S01,CONFLICT: equipment swapped to Nokia AFTER inventory was last updated; misspelled 'CONCRS'
+FIELD_OPERATIONS,WO-55028,S01,"AMBIGUOUS: no house number, no ZIP. Could be S01 or S02 -> manual review"
+FIELD_OPERATIONS,WO-55003,S02,Hard negative vs S01: only the house number differs
+FIELD_OPERATIONS,WO-55004,S03,Same work order sent twice: this is the OLD status
+FIELD_OPERATIONS,WO-55004,S03,"Same work order, NEW status: keep latest by record_updated_at"
+FIELD_OPERATIONS,WO-55030,S03,Missing state 'NY'
+FIELD_OPERATIONS,WO-55005,S04,'Pt' = Point; 'AIR6449' without space
+FIELD_OPERATIONS,WO-55006,S05,'East' spelled out vs 'E' in inventory
+FIELD_OPERATIONS,WO-55007,S05,No ZIP; '161' without 'st' suffix
+FIELD_OPERATIONS,WO-55008,S06,'Bway' = Broadway
+FIELD_OPERATIONS,WO-55009,S24,'Seventh' vs '7th'
+FIELD_OPERATIONS,WO-55010,S07,Clean
+FIELD_OPERATIONS,WO-55011,S08,'NY NY' instead of 'New York'
+FIELD_OPERATIONS,WO-55012,S08,Unit 'Ste 4' must be stripped
+FIELD_OPERATIONS,WO-55013,S09,Clean address
+FIELD_OPERATIONS,WO-55014,S10,Address identical to S06 except city/ZIP
+FIELD_OPERATIONS,WO-55015,S11,Clean
+FIELD_OPERATIONS,WO-55016,S12,'1 Main Street' - compare with Roosevelt Island '500 Main St'
+FIELD_OPERATIONS,WO-55017,S13,'Parkway' vs 'Pkwy'
+FIELD_OPERATIONS,WO-55018,S14,Floor 'Fl 3' must be stripped
+FIELD_OPERATIONS,WO-55020,S14,Hyphen lost ('61 15'); vague description matches S14 AND S15
+FIELD_OPERATIONS,WO-55019,S15,Clean
+FIELD_OPERATIONS,WO-55021,S16,Has the ZIP that inventory is missing
+FIELD_OPERATIONS,WO-55022,S17,Clean
+FIELD_OPERATIONS,WO-55023,S18,Clean
+FIELD_OPERATIONS,WO-55024,S19,'Staten Is' abbreviation
+FIELD_OPERATIONS,WO-55025,S23,Decommission work order
+FIELD_OPERATIONS,WO-55026,S22,Site NOT in inventory; links only to RF by name
+FIELD_OPERATIONS,WO-55027,S22,"Same site, city written as 'New York'"
