@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PySpark Interview Prep</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --text:#1d1d1f; --muted:#5f6368; --border:#e2e2df;
+  --accent:#2f6fdb; --accent-soft:#e8f0fd; --good:#1e8e3e; --good-soft:#e6f4ea;
+  --warn:#b06000; --warn-soft:#fef3e0; --bad:#c5221f; --bad-soft:#fce8e6;
+  --code-bg:#f1f3f4; --code-text:#202124; --say:#6f42c1; --say-soft:#f3eefc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16171a; --card:#1f2024; --text:#e8eaed; --muted:#a0a4ab; --border:#33353a;
+    --accent:#8ab4f8; --accent-soft:#1d2a40; --good:#81c995; --good-soft:#1b2e22;
+    --warn:#fdd663; --warn-soft:#3a3020; --bad:#f28b82; --bad-soft:#3b2120;
+    --code-bg:#121316; --code-text:#e8eaed; --say:#c58af9; --say-soft:#2a2138;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16171a; --card:#1f2024; --text:#e8eaed; --muted:#a0a4ab; --border:#33353a;
+  --accent:#8ab4f8; --accent-soft:#1d2a40; --good:#81c995; --good-soft:#1b2e22;
+  --warn:#fdd663; --warn-soft:#3a3020; --bad:#f28b82; --bad-soft:#3b2120;
+  --code-bg:#121316; --code-text:#e8eaed; --say:#c58af9; --say-soft:#2a2138;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header h1{font-size:1.25rem;margin:0;padding:14px 0 6px}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
+nav button{flex:none;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:7px 14px;border-radius:999px;font:inherit;font-size:.9rem;cursor:pointer}
+nav button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] nav button.active{color:#111}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) nav button.active{color:#111}}
+main{padding:24px 0 80px}
+.page{display:none}
+.page.active{display:block}
+h2{font-size:1.6rem;margin:0 0 4px}
+h3{font-size:1.25rem;margin:36px 0 10px;padding-top:12px;border-top:1px solid var(--border)}
+h4{font-size:1.05rem;margin:24px 0 8px}
+.sub{color:var(--muted);margin:0 0 20px}
+p,li{max-width:75ch}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow-x:auto;font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;position:relative}
+code{font:0.9em ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code-bg);padding:1px 5px;border-radius:4px}
+pre code{background:none;padding:0;font-size:inherit}
+.copy{position:absolute;top:6px;right:6px;font:12px sans-serif;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer}
+.out{opacity:.92}
+.out::before{content:"output";display:block;font:11px sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.93rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--card)}
+.box{border-radius:10px;padding:12px 16px;margin:14px 0;border:1px solid var(--border);background:var(--card)}
+.box > :first-child{margin-top:0}.box > :last-child{margin-bottom:0}
+.say{background:var(--say-soft);border-left:4px solid var(--say)}
+.say::before{content:"🗣️ Say out loud";display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--say);margin-bottom:4px}
+.int{background:var(--accent-soft);border-left:4px solid var(--accent)}
+.int::before{content:"🎙️ Interviewer";display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:4px}
+.good{background:var(--good-soft);border-left:4px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:4px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:4px solid var(--bad)}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-right:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+.toc{columns:2;font-size:.95rem}
+@media (max-width:700px){.toc{columns:1}}
+.theme{position:absolute;right:16px;top:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:.85rem}
+header .wrap{position:relative}
+@media print{
+  header{position:static}
+  nav,.copy,.theme{display:none}
+  .page{display:block!important;page-break-after:always}
+  pre{white-space:pre-wrap}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>PySpark Live Coding Interview Prep</h1>
+    <button class="theme" id="themeBtn" title="Toggle light/dark">◐ Theme</button>
+    <nav id="tabs">
+      <button data-page="playbook" class="active">0 · Playbook</button>
+      <button data-page="mock1">Mock 1 · E-commerce</button>
+      <button data-page="mock2">Mock 2 · Telecom skew</button>
+      <button data-page="cheat">Cheat sheet</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ===================================================== PLAYBOOK -->
+<section class="page active" id="playbook">
+<h2>Interview playbook</h2>
+<p class="sub">What to expect, how to talk while coding, and how to ask clarifying questions.</p>
+
+<h3>What the interview looks like</h3>
+<ul>
+  <li><b>Format:</b> 60-minute Zoom with two engineers. They share a link to a coding environment, you code while talking through it.</li>
+  <li><b>The link</b> is usually one of: <b>CoderPad</b> (<code>app.coderpad.io/…</code>), a <b>Databricks notebook</b>, <b>Google Colab</b> (<code>colab.research.google.com/drive/…</code>), or HackerRank / CodeSignal. It opens in your browser.</li>
+  <li><b>Screen sharing:</b> on CoderPad they see your code live. On Colab or Databricks they'll likely ask you to share your screen, so check Zoom screen-sharing permission beforehand (Mac: System Settings → Privacy → Screen Recording). Close extra tabs and turn off notifications.</li>
+  <li><b>It's fine to ask the recruiter</b> which platform the link will be for.</li>
+</ul>
+<table>
+<tr><th>Time</th><th>What happens</th></tr>
+<tr><td>~5 min</td><td>Introductions</td></tr>
+<tr><td>~35–40 min</td><td>A coding problem, usually in steps that get harder (e.g. "here's a DataFrame of transactions, find X")</td></tr>
+<tr><td>~10–15 min</td><td>Follow-ups: "why did you do it that way?", "what if it's a billion rows?", "what if the data is skewed?"</td></tr>
+</table>
+
+<h4>Know how to start from nothing</h4>
+<pre><code># Colab only: install first
+!pip install pyspark -q
+
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+
+spark = SparkSession.builder.appName("test").getOrCreate()
+
+df = spark.createDataFrame([(1, "a", 100), (2, "b", 200)], ["id", "name", "amount"])
+df.show()</code></pre>
+
+<h3>How to talk without losing concentration</h3>
+<p>Interviewers don't expect nonstop narration. They dislike <b>unexplained</b> silence, not silence. Talk at the moments you're <i>not</i> typing.</p>
+<table>
+<tr><th>Phase</th><th>What you do</th><th>Talking?</th></tr>
+<tr><td><b>1. Plan</b></td><td>Say your approach in 2–3 sentences before typing.</td><td>✅ Most important</td></tr>
+<tr><td><b>2. Type</b></td><td>Write the code. Say <i>"Let me write this, give me a minute."</i></td><td>🤫 Quiet is fine</td></tr>
+<tr><td><b>3. Explain</b></td><td>Run it, read the output, say whether it's what you expected.</td><td>✅ Yes</td></tr>
+</table>
+
+<div class="box good">
+<p><b>Best trick: write the plan as comments first, and read them aloud as you type them.</b> You decide a step, then say it. Then fill in the code under each comment quietly.</p>
+<pre><code># 1. filter out invalid rows
+# 2. aggregate calls per tower
+# 3. join with towers to get region
+# 4. sum per region</code></pre>
+</div>
+
+<div class="box say">"I concentrate better if I write a block first and then walk you through it. Is that okay?"</div>
+<div class="box say">When stuck: "I know I need the previous row here. I'm trying to remember if it's <code>lag</code> or <code>lead</code>."</div>
+<div class="box say">When you don't know: "I haven't used that directly, but here's how I'd reason about it… and I'd confirm by checking the Spark UI / docs / testing on a sample."</div>
+
+<p><b>Predict before you run.</b> Saying "I expect one partition to be much bigger" before running is strong. If it matches, you look like you understand the system. If not, you have something interesting to discuss.</p>
+
+<h3>How to ask clarifying questions</h3>
+<div class="box int">
+<p><b>Formula: What I noticed → the question → what I'd do by default</b></p>
+<p>The default is what sets you apart: it shows you have an opinion and won't stall waiting for an answer.</p>
+</div>
+
+<div class="grid2">
+<div class="box bad"><b>Weak</b><br>"I see that values are null, so should they count?"</div>
+<div class="box good"><b>Strong</b><br>"About 10% of calls have a <b>null <code>tower_id</code></b>, so they can't be matched to a region. Should they appear? My default would be an <b>'Unknown' region</b>, so the totals still add up and the team sees how much is missing."</div>
+<div class="box bad"><b>Weak</b><br>"Are there duplicates so I can drop them first?"</div>
+<div class="box good"><b>Strong</b><br>"Is <code>call_id</code> <b>unique</b>? If yes I'll skip dedup, since it's a shuffle. If not, I'll dedup on <code>call_id</code> before aggregating."</div>
+</div>
+
+<h4>Checklist: go through it every time, ask 2–4 that matter</h4>
+<table>
+<tr><th>Group</th><th>Questions</th></tr>
+<tr><td>📦 <b>Data</b></td><td>
+• What are the <b>data types</b>? Are dates strings? (Convert with <code>F.to_date</code>.)<br>
+• Can columns be <b>null</b>? What does a null mean here?<br>
+• Can there be <b>duplicates</b>? What's the unique key?<br>
+• Do all keys match the other table (orphan keys)? → pick the join type<br>
+• Odd values: zero durations, negative amounts, cancelled/refunded statuses?<br>
+• ⭐ <b>How big</b> is it in production? Is it <b>evenly spread</b> across keys? (Always ask when performance is mentioned. It points straight at skew.)
+</td></tr>
+<tr><td>🎯 <b>Output</b></td><td>
+• What's the <b>grain</b>: one row per <i>what</i>?<br>
+• Edge cases: no rows, ties, missing keys, gaps (missing months)?<br>
+• Sorting? Tie-breaking?<br>
+• How exactly is a metric defined (e.g. average = total ÷ count, including zeros)?
+</td></tr>
+<tr><td>⚙️ <b>Environment</b></td><td>
+• Which <b>Spark version</b>?<br>
+• One-off query or <b>daily job</b>? Batch or streaming?
+</td></tr>
+</table>
+
+<h3>How to answer discussion questions</h3>
+<div class="box">
+<p><b>1. What's the problem → 2. How I'd confirm it → 3. What I'd change → 4. The trade-off</b></p>
+<p>Steps 2 and 4 signal real experience: "I'd check the Spark UI first", "the downside is…".</p>
+</div>
+
+<h3>Your recurring habits (from both mocks)</h3>
+<div class="box good"><b>Strengths:</b> spotting data-quality issues (nulls, duplicates), aggregating before joining and explaining "same grain", left joins, the <code>row_number</code> dedup pattern, broadcast as the first skew fix.</div>
+<div class="box warn"><b>Fix 1: finish the spec.</b> Before the final <code>.show()</code>, re-read the requirement and ask "one row per what?" and "did I do every sub-part?"</div>
+<div class="box warn"><b>Fix 2: finish the reasoning.</b> Before diagnosing a problem, check whether <i>your own</i> code actually has it.</div>
+<div class="box warn"><b>Fix 3: raise trade-offs before they ask</b> (e.g. why not <code>dropDuplicates</code>).</div>
+</section>
+
+<!-- ===================================================== MOCK 1 -->
+<section class="page" id="mock1">
+<h2>Mock 1 · E-commerce orders</h2>
+<p class="sub">Aggregation and joins, deduplication, window functions, then scaling discussion.</p>
+
+<ul class="toc">
+  <li><a href="#m1-setup">Setup</a></li>
+  <li><a href="#m1-p1">Part 1: Revenue per customer</a></li>
+  <li><a href="#m1-p2">Part 2: Deduplication</a></li>
+  <li><a href="#m1-p3">Part 3: Window functions</a></li>
+  <li><a href="#m1-p4">Part 4: Discussion questions</a></li>
+  <li><a href="#m1-quick">Quick-fire questions</a></li>
+</ul>
+
+<h3 id="m1-setup">Setup</h3>
+<pre><code>from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+
+spark = SparkSession.builder.appName("mock_interview").getOrCreate()
+
+customers = spark.createDataFrame([
+    (1, "Alice",  "NY", "2023-01-15"),
+    (2, "Bob",    "CA", "2023-02-20"),
+    (3, "Carol",  "NY", "2023-03-05"),
+    (4, "Dave",   "TX", "2023-03-18"),
+    (5, "Eve",    None, "2023-04-01"),
+], ["customer_id", "name", "state", "signup_date"])
+
+orders = spark.createDataFrame([
+    (101, 1, "2024-01-05", 120.0, "completed"),
+    (102, 1, "2024-01-20",  80.0, "completed"),
+    (103, 2, "2024-01-07", 200.0, "cancelled"),
+    (104, 2, "2024-02-11", 150.0, "completed"),
+    (105, 3, "2024-02-14",  60.0, "completed"),
+    (106, 3, "2024-02-14",  60.0, "completed"),   # suspicious...
+    (107, 1, "2024-02-28", 300.0, "completed"),
+    (108, 4, "2024-03-01",  None, "completed"),
+    (109, 2, "2024-03-15",  90.0, "completed"),
+    (110, 3, "2024-03-20", 110.0, "refunded"),
+], ["order_id", "customer_id", "order_date", "amount", "status"])</code></pre>
+<p><b>Traps hidden in the data:</b> Eve's null state · order 106 duplicates 105 · order 108 has a null amount · cancelled/refunded statuses · Eve has no orders · dates are strings.</p>
+
+<!-- Part 1 -->
+<h3 id="m1-p1">Part 1: Total revenue per customer</h3>
+<div class="box int">Calculate the <b>total revenue per customer</b>, counting only <b>completed</b> orders. Show the customer's <b>name</b> with their total, highest first. Customers with no completed orders should still appear with 0.</div>
+
+<h4>Clarifying questions</h4>
+<table>
+<tr><th>Question</th><th>Interviewer's answer</th></tr>
+<tr><td>"Eve's state is null. Keep it null, or label it Unknown?"</td><td>Doesn't matter here (not grouping by state). Keep null.</td></tr>
+<tr><td>"Orders 105 and 106 are identical except for the ID. Did the POS resend it, or are they two orders?"</td><td>Upstream does send duplicates. For Part 1, treat them as separate. Dedup is Part 2.</td></tr>
+<tr><td>"Order 108 has a null amount. What should Dave's total be?"</td><td>(Ask, or state your assumption.)</td></tr>
+<tr><td>"Not every customer has orders, so I'll left join from customers. OK?"</td><td>Yes.</td></tr>
+</table>
+
+<h4>Model answer</h4>
+<div class="box say">"I'll aggregate orders to one row per customer first, so both sides are at the same grain when I join. That avoids fan-out and shuffles less data. Then a left join from customers so nobody is lost, and fill missing totals with 0."</div>
+<pre><code>total = (orders
+    .filter(F.col("status") == "completed")
+    .groupBy("customer_id")
+    .agg(F.sum("amount").alias("total_rev")))
+
+final = (customers.join(total, "customer_id", "left")
+    .fillna({"total_rev": 0})
+    .select("customer_id", "name", "total_rev")          # follow the spec exactly
+    .orderBy(F.desc("total_rev"), "customer_id"))        # tiebreaker = deterministic
+
+final.show()</code></pre>
+<pre class="out"><code>+-----------+-----+---------+
+|customer_id| name|total_rev|
++-----------+-----+---------+
+|          1|Alice|    500.0|
+|          2|  Bob|    240.0|
+|          3|Carol|    120.0|
+|          4| Dave|      0.0|
+|          5|  Eve|      0.0|
++-----------+-----+---------+</code></pre>
+
+<h4>Interviewer follow-ups</h4>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Are Dave and Eve the same case?</td><td>No. Eve never ordered, so 0 is true. Dave ordered, but the amount is unknown, so 0 is misleading.</td></tr>
+<tr><td><code>sum</code> ignores nulls, so why is Dave's total null before <code>fillna</code>?</td><td>If <b>every</b> value in a group is null, <code>sum</code> returns null.</td></tr>
+<tr><td>Dave and Eve tie at 0. Same order every run?</td><td>No. Tied sort order isn't deterministic. Add a tiebreaker column.</td></tr>
+</table>
+
+<h4>Handling Dave vs Eve in code</h4>
+<p><b>Option 1 (recommended): keep the information that tells them apart.</b></p>
+<pre><code>completed = orders.filter(F.col("status") == "completed")
+
+total = completed.groupBy("customer_id").agg(
+    F.sum("amount").alias("total_rev"),
+    F.count("*").alias("completed_orders"),                       # counts every row
+    F.sum(F.when(F.col("amount").isNull(), 1).otherwise(0))
+        .alias("orders_missing_amount"))
+
+final = (customers.join(total, "customer_id", "left")
+    .fillna({"total_rev": 0, "completed_orders": 0, "orders_missing_amount": 0})
+    .select("customer_id", "name", "total_rev", "completed_orders", "orders_missing_amount")
+    .orderBy(F.desc("total_rev"), "customer_id"))</code></pre>
+<p><b>Option 2: a status label</b></p>
+<pre><code>final = final.withColumn("revenue_status",
+    F.when(F.col("completed_orders") == 0, "no_orders")
+     .when(F.col("orders_missing_amount") &gt; 0, "incomplete")
+     .otherwise("complete"))</code></pre>
+<p><b>Option 3: quarantine bad rows (production pattern)</b></p>
+<pre><code>bad_rows  = orders.filter(F.col("amount").isNull())     # -&gt; quarantine table + alert source team
+good_rows = orders.filter(F.col("amount").isNotNull())  # -&gt; continue the pipeline</code></pre>
+<div class="box say">"I'd keep Dave's and Eve's cases separate. In the report I'd add a completed-orders count and a missing-amount flag, so a 0 is never ambiguous. In production I'd send null-amount rows to a quarantine table and alert the source team, instead of silently fixing them."</div>
+<p><b>Tip:</b> <code>F.count("*")</code> counts all rows; <code>F.count("amount")</code> skips nulls. Comparing them finds missing values. <code>F.coalesce(col, F.lit(0))</code> is an alternative to <code>fillna</code>.</p>
+
+<!-- Part 2 -->
+<h3 id="m1-p2">Part 2: Deduplication</h3>
+<div class="box int">Two orders are duplicates when they have the same <code>customer_id</code>, <code>order_date</code>, <code>amount</code> and <code>status</code>. Keep the one with the <b>lowest <code>order_id</code></b>.
+<ol><li>Build <code>orders_clean</code>.</li><li>Show <b>how many rows were removed</b> (for data-quality monitoring).</li><li>Rerun the Part 1 report on clean data.</li></ol>
+Discussion: a built-in function could do this in one line. Why might you <i>not</i> use it?</div>
+
+<div class="box say">"Same four columns means the POS resent it, and the rule says keep the lowest order_id. So I'll partition a window by those four columns, order by order_id, and keep row number 1. I'll keep the other rows too, so I can log exactly what was removed."</div>
+<pre><code>w = Window.partitionBy("customer_id", "order_date", "amount", "status").orderBy("order_id")
+
+ranked = orders.withColumn("rn", F.row_number().over(w))
+
+orders_clean = ranked.filter("rn = 1").drop("rn")
+removed      = ranked.filter("rn &gt; 1").drop("rn")   # exactly order 106
+
+removed.show()
+print("rows removed:", removed.count())</code></pre>
+<p>Showing the <b>removed rows</b> beats subtracting two counts: you get the actual records (useful for an audit/quarantine table), and <code>orders.count()</code> + <code>orders_clean.count()</code> runs two full jobs.</p>
+<p><b>Step 3: rerun the report.</b> With clean data, Carol drops from 120 to 60. Don't skip sub-parts: if you need to, say "I'll come back to step 3."</p>
+
+<h4>Why not <code>dropDuplicates</code>?</h4>
+<pre><code>orders.dropDuplicates(["customer_id", "order_date", "amount", "status"])</code></pre>
+<ul>
+<li>It <b>doesn't let you choose which row survives</b>. After a shuffle, which row is kept is effectively random, so "keep the lowest order_id" isn't guaranteed.</li>
+<li>Two runs could keep different rows: the pipeline becomes <b>non-deterministic</b>.</li>
+<li>It's fine when rows are <b>completely identical</b> in every column.</li>
+</ul>
+<div class="box say">"<code>dropDuplicates</code> keeps an arbitrary row, and we have a business rule about which one to keep, so I used <code>row_number</code> with an explicit order. It's deterministic, and I can capture the removed rows for auditing."</div>
+<ul>
+<li><b><code>row_number</code> vs <code>rank</code> vs <code>dense_rank</code>:</b> for dedup always use <code>row_number</code>. If two rows tied on the order column, <code>rank</code> gives both 1 and keeps both.</li>
+<li><b>Nulls in partition keys</b> are grouped together, so two rows with null amount and matching other keys count as duplicates.</li>
+</ul>
+
+<!-- Part 3 -->
+<h3 id="m1-p3">Part 3: Window functions</h3>
+<div class="box int">Using <code>orders_clean</code>, completed orders only, ignoring null amounts:
+<p><b>3a.</b> Every order per customer with a <b>running total</b> of spend over time.<br>
+<b>3b.</b> <b>Monthly revenue</b> (one row per month) with <b>% change from the previous month</b>.<br>
+<b>3c.</b> Each customer's <b>most recent order</b> and <b>days between signup and first order</b>.</p></div>
+
+<h4>Clarifying questions</h4>
+<table>
+<tr><th>Question</th><th>Why it matters</th><th>Answer</th></tr>
+<tr><td>"Dates are strings. Always <code>yyyy-MM-dd</code>? I'll convert them first."</td><td>Date maths and sorting need <code>DateType</code>.</td><td>Yes</td></tr>
+<tr><td>"Two orders on the same day: which comes first in the running total?"</td><td>Ties change running totals.</td><td>Break ties by order_id</td></tr>
+<tr><td>"If a month has no orders, show 0 or skip it?"</td><td><code>lag</code> = previous <i>row</i>, not previous <i>month</i>.</td><td>No gaps here, but mention it</td></tr>
+<tr><td>"Does Dave's null-amount order count as his first order?"</td><td>Consistent filtering.</td><td>Use the same filtered set</td></tr>
+<tr><td>"Customers with no valid orders: include them in 3c?"</td><td>Left join again.</td><td>Yes, with nulls</td></tr>
+<tr><td>"Most recent order: just the date, or full details?"</td><td><code>max()</code> vs a window.</td><td>ID, date and amount</td></tr>
+</table>
+
+<h4>Shared prep</h4>
+<pre><code>valid = (orders_clean
+    .filter((F.col("status") == "completed") &amp; F.col("amount").isNotNull())
+    .withColumn("order_date", F.to_date("order_date")))
+
+customers_d = customers.withColumn("signup_date", F.to_date("signup_date"))</code></pre>
+<pre class="out"><code>+--------+-----------+----------+------+---------+
+|order_id|customer_id|order_date|amount|   status|
++--------+-----------+----------+------+---------+
+|     101|          1|2024-01-05| 120.0|completed|
+|     102|          1|2024-01-20|  80.0|completed|
+|     104|          2|2024-02-11| 150.0|completed|
+|     105|          3|2024-02-14|  60.0|completed|
+|     107|          1|2024-02-28| 300.0|completed|
+|     109|          2|2024-03-15|  90.0|completed|
++--------+-----------+----------+------+---------+</code></pre>
+<div class="box say">"Sanity check: 103 cancelled, 110 refunded, 106 the duplicate, 108 null amount. Six rows left, which matches."</div>
+
+<h4>3a · Running total</h4>
+<pre><code>w_running = (Window.partitionBy("customer_id")
+             .orderBy("order_date", "order_id")
+             .rowsBetween(Window.unboundedPreceding, Window.currentRow))
+
+running = valid.withColumn("running_total", F.sum("amount").over(w_running))</code></pre>
+<pre class="out"><code>+-----------+--------+----------+------+-------------+
+|customer_id|order_id|order_date|amount|running_total|
++-----------+--------+----------+------+-------------+
+|          1|     101|2024-01-05| 120.0|        120.0|
+|          1|     102|2024-01-20|  80.0|        200.0|
+|          1|     107|2024-02-28| 300.0|        500.0|
+|          2|     104|2024-02-11| 150.0|        150.0|
+|          2|     109|2024-03-15|  90.0|        240.0|
+|          3|     105|2024-02-14|  60.0|         60.0|
++-----------+--------+----------+------+-------------+</code></pre>
+<div class="box say">"I set <code>rowsBetween</code> explicitly. Without a frame, Spark uses <code>rangeBetween</code>, so two orders on the same date would be summed together and both show the same running total. Also, the final totals 500 / 240 / 60 match Part 1 after dedup."</div>
+
+<h4>3b · Monthly revenue and % change</h4>
+<pre><code>monthly = (valid
+    .withColumn("month", F.trunc("order_date", "month"))     # keeps a real date
+    .groupBy("month")
+    .agg(F.sum("amount").alias("revenue")))
+
+w_month = Window.orderBy("month")
+
+monthly = (monthly
+    .withColumn("prev_revenue", F.lag("revenue").over(w_month))
+    .withColumn("pct_change",
+        F.round((F.col("revenue") - F.col("prev_revenue")) / F.col("prev_revenue") * 100, 2))
+    .orderBy("month"))</code></pre>
+<pre class="out"><code>+----------+-------+------------+----------+
+|     month|revenue|prev_revenue|pct_change|
++----------+-------+------------+----------+
+|2024-01-01|  200.0|        NULL|      NULL|
+|2024-02-01|  510.0|       200.0|     155.0|
+|2024-03-01|   90.0|       510.0|    -82.35|
++----------+-------+------------+----------+</code></pre>
+<div class="box say">"Three things: January's change is null, which is right, and I wouldn't fill it with 0 because 0% means 'no change'. This window has no <code>partitionBy</code>, so everything goes to one partition, which is fine only because I aggregated to one row per month first. And for gaps, I'd build a month calendar with <code>F.sequence</code> + <code>explode</code>, left-join revenue onto it and fill 0."</div>
+
+<h4>3c · Latest order and days to first order</h4>
+<pre><code>first_order = valid.groupBy("customer_id").agg(F.min("order_date").alias("first_order_date"))
+
+w_latest = Window.partitionBy("customer_id").orderBy(F.desc("order_date"), F.desc("order_id"))
+
+latest_order = (valid
+    .withColumn("rn", F.row_number().over(w_latest))
+    .filter("rn = 1")
+    .select("customer_id",
+            F.col("order_id").alias("latest_order_id"),
+            F.col("order_date").alias("latest_order_date"),
+            F.col("amount").alias("latest_amount")))
+
+result = (customers_d
+    .join(first_order, "customer_id", "left")
+    .join(latest_order, "customer_id", "left")
+    .withColumn("days_to_first_order", F.datediff("first_order_date", "signup_date"))
+    .orderBy("customer_id"))</code></pre>
+<pre class="out"><code>+-----------+-----+-----------+----------------+-------------------+---------------+-----------------+-------------+
+|customer_id| name|signup_date|first_order_date|days_to_first_order|latest_order_id|latest_order_date|latest_amount|
++-----------+-----+-----------+----------------+-------------------+---------------+-----------------+-------------+
+|          1|Alice| 2023-01-15|      2024-01-05|                355|            107|       2024-02-28|        300.0|
+|          2|  Bob| 2023-02-20|      2024-02-11|                356|            109|       2024-03-15|         90.0|
+|          3|Carol| 2023-03-05|      2024-02-14|                346|            105|       2024-02-14|         60.0|
+|          4| Dave| 2023-03-18|            NULL|               NULL|           NULL|             NULL|         NULL|
+|          5|  Eve| 2023-04-01|            NULL|               NULL|           NULL|             NULL|         NULL|
++-----------+-----+-----------+----------------+-------------------+---------------+-----------------+-------------+</code></pre>
+<div class="box say">"First order is a plain <code>min</code>. Latest order needs full details, so <code>max</code> isn't enough. I use <code>row_number</code> descending, the same pattern as the dedup. <code>datediff</code> takes the end date first. On Spark 3.3+, <code>F.max_by</code> could also get the latest order ID in one <code>groupBy</code>."</div>
+
+<!-- Part 4 -->
+<h3 id="m1-p4">Part 4: Discussion questions (no code)</h3>
+
+<h4>Q1 · "orders is now 2 billion rows. What changes?"</h4>
+<div class="box say">
+<p>"The logic stays the same, but I'd change how data is stored, read and moved.</p>
+<p><b>Storage:</b> Parquet or Delta, not CSV, partitioned by <code>order_date</code>, so date filters only read those folders (<b>partition pruning</b>). Parquet also reads only selected columns (<b>column pruning</b>) and pushes filters into the scan (<b>predicate pushdown</b>).</p>
+<p><b>Reduce early:</b> filter and select first; aggregate before joining so the join gets one row per customer.</p>
+<p><b>Watch shuffles:</b> my dedup key includes <code>order_date</code>, so duplicates only occur within a day, and I can dedup one day's partition at a time. And I'd never run the no-<code>partitionBy</code> monthly window on raw rows.</p>
+<p><b>Fewer actions:</b> remove <code>count()</code>/<code>show()</code>; cache only what's reused.</p>
+<p><b>Config:</b> Adaptive Query Execution on (default since Spark 3.2) and a sensible <code>spark.sql.shuffle.partitions</code>; the default 200 is often wrong."</p>
+</div>
+<p><b>Key idea: read less, shuffle less, act less.</b></p>
+
+<h4>Q2 · "The join with customers is slow. Why, and what would you try?"</h4>
+<div class="box say">"I'd check <code>.explain()</code> or the Spark UI for the join strategy. Two large DataFrames get a <b>sort-merge join</b>: both sides shuffled by key and sorted, which is the slow part. But customers is a small dimension table, so I'd <b>broadcast</b> it: every executor gets a full copy and the big table doesn't shuffle at all. Spark auto-broadcasts under <code>spark.sql.autoBroadcastJoinThreshold</code> (10 MB by default) and AQE can switch at runtime; the hint makes it explicit. Trade-off: the broadcast table must fit in memory on the driver and every executor. If both sides are large: filter and prune first, check for skew, and consider bucketing tables joined repeatedly."</div>
+<pre><code>result = orders.join(F.broadcast(customers), "customer_id", "left")</code></pre>
+<p><b>Gotcha:</b> in a <b>left</b> join Spark can only broadcast the <b>right</b> side.</p>
+
+<h4>Q3 · "What is data skew? How do you spot and fix it?"</h4>
+<p>Covered in depth in Mock 2. Short version: a few keys have far more rows; during a shuffle all of a key's rows go to one task, so one task does most of the work and the stage waits on it. Spot it in the Spark UI (median task seconds, max task minutes) and confirm with <code>groupBy(key).count()</code>. Fix in order: handle bad keys (nulls, placeholders) separately → broadcast → AQE skew join → salting.</p>
+<pre><code># Salting for a skewed SUM (random salt is fine for sums)
+salted  = orders.withColumn("salt", (F.rand() * 10).cast("int"))
+partial = salted.groupBy("customer_id", "salt").agg(F.sum("amount").alias("part_sum"))
+final   = partial.groupBy("customer_id").agg(F.sum("part_sum").alias("total"))</code></pre>
+
+<h4>Q4 · "How would you make this pipeline incremental?"</h4>
+<div class="box say">
+<p>"Each run should process only new or changed data. Three things: what's new, where it goes, and making reruns safe.</p>
+<p><b>1. New data:</b> a <b>high-water mark</b> in a control table, using an <b>ingestion timestamp</b>, not <code>order_date</code>, because orders arrive late.</p>
+<p><b>2. Writing:</b> <code>MERGE</code> (upsert) with Delta or Iceberg on <code>order_id</code>; for aggregates, recompute only affected partitions with dynamic partition overwrite.</p>
+<p><b>3. Dedup across batches:</b> a resend can arrive in a different batch, so the merge must check incoming rows against the existing table on the business key.</p>
+<p><b>4. Idempotency:</b> MERGE and partition overwrite give the same result if rerun; a plain <code>append</code> doesn't, which is a classic source of duplicates.</p>
+<p><b>5. Late data:</b> reprocess a lookback window, e.g. the last 3 days, each run."</p>
+</div>
+<p><b>If pushed:</b> Structured Streaming with a <b>watermark</b> and <code>dropDuplicatesWithinWatermark</code> for near-real-time. <b>On AWS:</b> S3 (Parquet/Delta/Iceberg), Glue or EMR, Airflow or Step Functions, and Glue job bookmarks as a built-in high-water mark.</p>
+
+<h3 id="m1-quick">Quick-fire questions</h3>
+<table>
+<tr><th>Question</th><th>Short answer</th></tr>
+<tr><td>Transformation vs action?</td><td>Transformations (<code>filter</code>, <code>select</code>, <code>join</code>) are lazy and build a plan. Actions (<code>count</code>, <code>show</code>, <code>write</code>, <code>collect</code>) run it.</td></tr>
+<tr><td>Why is Spark lazy?</td><td>Seeing the whole plan lets the Catalyst optimizer reorder and combine steps, e.g. push filters down.</td></tr>
+<tr><td>Narrow vs wide?</td><td>Narrow (<code>filter</code>, <code>withColumn</code>): no data movement. Wide (<code>groupBy</code>, <code>join</code>, <code>distinct</code>, window with <code>partitionBy</code>): needs a <b>shuffle</b>.</td></tr>
+<tr><td><code>repartition</code> vs <code>coalesce</code>?</td><td><code>repartition(n)</code>: full shuffle, can go up or down, even. <code>coalesce(n)</code>: only down, no full shuffle, can be uneven. Use coalesce to reduce output files.</td></tr>
+<tr><td>When to <code>cache</code>?</td><td>When a DataFrame is reused by several actions. Not for one-time use. <code>unpersist()</code> after.</td></tr>
+<tr><td>Small files problem?</td><td>Many tiny files slow reads (metadata, task overhead). Coalesce/repartition before writing, or compact (Delta <code>OPTIMIZE</code>).</td></tr>
+<tr><td>Why avoid <code>collect()</code>?</td><td>Pulls everything to the driver → out of memory on big data.</td></tr>
+<tr><td>Why avoid Python UDFs?</td><td>Opaque to the optimizer, plus JVM↔Python serialization. Use built-ins, or pandas UDFs.</td></tr>
+<tr><td><code>groupBy</code> vs window?</td><td><code>groupBy</code> collapses rows to one per group. A window keeps every row and adds a column.</td></tr>
+</table>
+</section>
+
+<!-- ===================================================== MOCK 2 -->
+<section class="page" id="mock2">
+<h2>Mock 2 · Telecom call records (skew)</h2>
+<p class="sub">Aggregation and joins at scale, proving skew, partitions, and skew-safe distinct counts.</p>
+
+<ul class="toc">
+  <li><a href="#m2-setup">Setup</a></li>
+  <li><a href="#m2-q">Clarifying questions</a></li>
+  <li><a href="#m2-p1">Part 1: Region report</a></li>
+  <li><a href="#m2-part">How partitions work</a></li>
+  <li><a href="#m2-p2">Part 2: Prove the skew</a></li>
+  <li><a href="#m2-p3">Part 3: Unique callers</a></li>
+  <li><a href="#m2-sum">Skew summary</a></li>
+</ul>
+
+<h3 id="m2-setup">Setup</h3>
+<pre><code>from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+
+spark = (SparkSession.builder.appName("mock2")
+         .config("spark.sql.shuffle.partitions", "8")
+         .getOrCreate())
+
+# Make the problem visible on a small machine (usually ON in real clusters)
+spark.conf.set("spark.sql.adaptive.enabled", "false")
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
+
+# Call detail records: 2 million calls
+cdr = (spark.range(2_000_000).withColumnRenamed("id", "call_id")
+    .withColumn("r", F.rand(42))
+    .withColumn("tower_id",
+        F.when(F.col("r") &lt; 0.60, F.lit(1))
+         .when(F.col("r") &lt; 0.70, F.lit(None).cast("int"))
+         .otherwise((F.rand(7) * 999).cast("int") + 2))
+    .withColumn("caller_id",    (F.rand(3) * 100000).cast("int"))
+    .withColumn("duration_sec", (F.rand(5) * 600).cast("int"))
+    .withColumn("call_date",    F.date_add(F.lit("2024-03-01"), (F.rand(9) * 30).cast("int")))
+    .drop("r"))
+
+# 1,000 cell towers
+towers = (spark.range(1, 1001)
+    .withColumn("tower_id", F.col("id").cast("int")).drop("id")
+    .withColumn("region",
+        F.when(F.col("tower_id") == 1, F.lit("Downtown"))
+         .otherwise(F.concat(F.lit("Region_"), (F.col("tower_id") % 10).cast("string")))))</code></pre>
+<p><b>Built-in problems:</b> tower 1 has ~60% of all calls (the hot key) · ~10% of calls have a null <code>tower_id</code> · some calls last 0 seconds.</p>
+
+<div class="box int">We're a telecom company. Every call creates a record in <code>cdr</code> with the tower that handled it. <code>towers</code> maps towers to regions. The network planning team runs a <b>daily report</b> that has become very slow. We'll build the report, then investigate.</div>
+
+<h3 id="m2-q">Clarifying questions</h3>
+<div class="grid2">
+<div class="box bad"><b>Original</b><br>"In the CDR data values are null, so should they count in the final output?"</div>
+<div class="box good"><b>Improved</b><br>"About 10% of calls have a null <code>tower_id</code>, so they can't be matched to a region. Should they appear? My default: an 'Unknown' region so totals add up and the team sees how much is missing."</div>
+<div class="box bad"><b>Original</b><br>"Are there duplicates in the CDR so I can drop them first?"</div>
+<div class="box good"><b>Improved</b><br>"Is <code>call_id</code> unique? If yes I'll skip dedup, since it's a shuffle. Otherwise I'll dedup on <code>call_id</code> before aggregating."</div>
+</div>
+
+<table>
+<tr><th>#</th><th>Question</th><th>Interviewer's answer</th></tr>
+<tr><td>⭐1</td><td>"How big is this in production? Is traffic spread evenly across towers?" <i>(The job is slow, so always ask about size and distribution.)</i></td><td>~2 billion calls/day, 1,000 towers (tiny table). Traffic is uneven: the downtown stadium tower is <i>much</i> busier.</td></tr>
+<tr><td>2</td><td>Null <code>tower_id</code> (as above)</td><td>Mostly roaming handoffs. Keep them as 'Unknown'.</td></tr>
+<tr><td>3</td><td>Duplicates (as above)</td><td><code>call_id</code> is unique.</td></tr>
+<tr><td>4</td><td>"Zero-second calls are probably failed calls. Count them? My default is yes."</td><td>Count them.</td></tr>
+<tr><td>5</td><td>"Could a <code>tower_id</code> be missing from <code>towers</code>? I'll left join anyway."</td><td>Assume all exist.</td></tr>
+<tr><td>6</td><td>"Average = total minutes ÷ total calls, including zeros?"</td><td>Yes.</td></tr>
+</table>
+
+<!-- Part 1 -->
+<h3 id="m2-p1">Part 1: The region report</h3>
+<div class="box int">For <b>each region</b>: total number of calls, total call minutes (<code>duration_sec</code> is seconds), average duration in minutes (2 decimals). Sort by total minutes, highest first.</div>
+
+<h4>Common mistakes (seen in the first attempt)</h4>
+<div class="box bad">
+<p><b>1. Wrong grain.</b> Stopping at one row per <b>tower</b>. The spec says per <b>region</b>, so a second <code>groupBy("region")</code> is needed after the join.</p>
+<p><b>2. Rounding too early.</b> Rounding each call to minutes then summing accumulates rounding errors over billions of rows.</p>
+<p><b>3. Averaging averages.</b> Averaging tower averages weights a 1.2M-call tower the same as a 600-call tower. Wrong.</p>
+</div>
+<div class="box good"><b>Rule:</b> carry <b>sums and counts</b> through the pipeline; divide and round only at the very end.</div>
+
+<h4>Model answer</h4>
+<pre><code># 1. aggregate per tower, keeping raw seconds
+# 2. broadcast-join towers to get region (towers is tiny)
+# 3. null region -&gt; 'Unknown'
+# 4. roll up to region, convert and round at the end
+
+tower_agg = cdr.groupBy("tower_id").agg(
+    F.count("*").alias("n_calls"),
+    F.sum("duration_sec").alias("total_sec"))
+
+with_region = (tower_agg
+    .join(F.broadcast(towers), "tower_id", "left")
+    .fillna({"region": "Unknown"}))
+
+report = (with_region.groupBy("region").agg(
+        F.sum("n_calls").alias("total_calls"),
+        F.sum("total_sec").alias("total_sec"))
+    .withColumn("total_minutes", F.round(F.col("total_sec") / 60, 2))
+    .withColumn("avg_minutes",   F.round(F.col("total_sec") / 60 / F.col("total_calls"), 2))
+    .drop("total_sec")
+    .orderBy(F.desc("total_minutes")))</code></pre>
+<p>Expect <b>Downtown</b> first (~1.2M calls), <b>Unknown</b> second (~200k), then ten <code>Region_x</code> rows with ~60k calls each, average ~5 minutes everywhere.</p>
+
+<h4>⭐ Why this design already avoids most of the skew</h4>
+<p>The join happens <b>after</b> aggregation: ~1,000 rows on each side, nothing to skew. And the <code>groupBy("tower_id")</code> uses <code>count</code>/<code>sum</code>, which Spark <b>pre-aggregates on each partition before the shuffle</b> (map-side combine). Tower 1's 1.2M rows become one partial row per partition before anything moves.</p>
+<div class="box say">"The slow production job probably joins raw CDRs to towers first. In a sort-merge join, all 1.2 million tower-1 rows, plus the 200,000 nulls, get shuffled to single tasks. That's the skew. My version aggregates first; Spark pre-aggregates each partition, so the hot key shrinks to a handful of rows and the join is only ~1,000 × 1,000. Broadcasting towers removes the join shuffle entirely."</div>
+<p><b>Nulls:</b> they form one group in a <code>groupBy</code> and hash to one partition in a shuffle. Null keys <b>never match</b> in a join, which is why they come out with a null region.</p>
+
+<!-- Partitions -->
+<h3 id="m2-part">How partitions work (why we use <code>repartition</code> to prove skew)</h3>
+<table>
+<tr><th>Kind</th><th>How rows are split</th><th>Skew visible?</th></tr>
+<tr><td><b>Input partitions</b> (before any shuffle)</td><td>By <b>position</b> in the source (rows 1–250k, 250k–500k, …). Ignores <code>tower_id</code>.</td><td>No, they're even.</td></tr>
+<tr><td><b>Shuffle partitions</b> (join, groupBy, distinct, window)</td><td>Each row goes to <code>hash(key) % n</code>. All rows of a key land together.</td><td><b>Yes, this is where skew appears.</b></td></tr>
+</table>
+<pre><code>  INPUT (split by position, even)           SHUFFLE (split by hash of tower_id)
+  ┌───────────────┐                         ┌──────────────────────────────┐
+  │ p0: 250k rows │──┐                      │ p0:   75k                    │
+  │ p1: 250k rows │──┤   each row goes to   │ p1:   75k                    │
+  │ p2: 250k rows │──┼──► hash(tower_id)%8 ─►│ p2: 1,275k  ◄── all tower 1 │
+  │ ...           │──┤                      │ p3:   75k                    │
+  │ p7: 250k rows │──┘                      │ ...                          │
+  └───────────────┘                         └──────────────────────────────┘
+     every task is even                         one task is huge = SKEW</code></pre>
+<pre><code># Input partitions: roughly even, proves nothing
+cdr.withColumn("pid", F.spark_partition_id()).groupBy("pid").count().orderBy("pid").show()</code></pre>
+<p><code>repartition(8, "tower_id")</code> forces the <b>same hash shuffle</b> a join or groupBy does, so you can measure what each task would receive.</p>
+
+<!-- Part 2 -->
+<h3 id="m2-p2">Part 2: Prove the skew</h3>
+<div class="box int">Run the production version and compare it with yours. Then show me <b>evidence</b> of skew: how many rows land in each partition when the data is shuffled by <code>tower_id</code>.</div>
+<pre><code>import time
+
+t = time.time()
+prod = (cdr.join(towers, "tower_id", "left")       # joins raw CDRs first
+    .fillna({"region": "Unknown"})
+    .groupBy("region").agg(F.count("*").alias("total_calls")))
+prod.collect()
+print("prod version:", round(time.time() - t, 1), "seconds")
+
+t = time.time()
+report.collect()
+print("your version:", round(time.time() - t, 1), "seconds")</code></pre>
+
+<h4>Step 1: Predict</h4>
+<div class="box say">"When Spark shuffles by tower_id, every row with the same key goes to the same partition. Tower 1 has ~1.2M rows, so I expect one partition to be far bigger. Nulls also hash to one partition. The other 999 towers should spread evenly."</div>
+
+<h4>Evidence A: rows per partition</h4>
+<pre><code>shuffled = cdr.repartition(8, "tower_id")
+
+partition_sizes = (shuffled
+    .withColumn("partition_id", F.spark_partition_id())
+    .groupBy("partition_id").count()
+    .orderBy("partition_id"))
+partition_sizes.show()</code></pre>
+<pre class="out"><code>+------------+-------+
+|partition_id|  count|
++------------+-------+
+|           0|  75000|
+|           1|  76000|
+|           2|1275000|   &lt;- tower 1
+|           3|  74000|
+|           4| 275000|   &lt;- the nulls
+|           5|  75000|
+|           6|  74000|
+|           7|  76000|
++------------+-------+        (approximate; nulls may share tower 1's partition)</code></pre>
+
+<h4>Evidence B: which keys cause it</h4>
+<pre><code>(shuffled.withColumn("partition_id", F.spark_partition_id())
+    .groupBy("partition_id", "tower_id").count()
+    .orderBy(F.desc("count")).show(5))</code></pre>
+
+<h4>Evidence C: one summary number</h4>
+<pre><code>stats = partition_sizes.agg(
+    F.max("count").alias("max_rows"),
+    F.expr("percentile_approx(count, 0.5)").alias("median_rows"))
+stats.withColumn("skew_ratio", F.round(F.col("max_rows") / F.col("median_rows"), 1)).show()</code></pre>
+<p>≈1 means balanced. Here ~15–17: one task does ~16× the work of a typical one.</p>
+
+<h4>Evidence D: the real join, with and without broadcast (strongest)</h4>
+<pre><code># Sort-merge join: output lives in the shuffle partitions -&gt; skewed
+joined = cdr.join(towers, "tower_id", "left")
+joined.withColumn("pid", F.spark_partition_id()).groupBy("pid").count().orderBy("pid").show()
+
+# Broadcast join: no shuffle of cdr -&gt; partitions stay even
+joined_bc = cdr.join(F.broadcast(towers), "tower_id", "left")
+joined_bc.withColumn("pid", F.spark_partition_id()).groupBy("pid").count().orderBy("pid").show()</code></pre>
+<p>Two small queries show both the problem and the fix.</p>
+
+<h4>Explain the output</h4>
+<div class="box say">"Seven partitions have ~75k rows and one has ~1.27M, almost all tower 1. In production, with 2 billion rows and 200+ partitions, that one task could take hours while the others finish in seconds, which matches 'one task runs 40 minutes'. <b>Adding partitions or executors won't help</b>: all of a key's rows always go to one partition. Skew needs a different fix: broadcast, isolate the hot key, AQE, or salting."</div>
+<div class="box say">On timing in Colab: "The gap is modest because Colab is a single machine. The partition counts are better evidence. On a cluster I'd check the stage in the Spark UI: median task seconds vs max task minutes."</div>
+
+<h4><code>groupBy(key).count()</code> vs partition sizes</h4>
+<table>
+<tr><th>Check</th><th>Answers</th><th>Notes</th></tr>
+<tr><td><code>groupBy("tower_id").count()</code></td><td><i>Which keys are heavy?</i> (the data)</td><td>Cheap, simple, the standard first check. Can run before the expensive job.</td></tr>
+<tr><td>Partition sizes after a shuffle</td><td><i>How much work does each task get?</i> (the effect)</td><td>Also catches several medium keys hashing into the same partition.</td></tr>
+<tr><td>Spark UI task metrics</td><td><i>How bad is it on the real cluster?</i></td><td>Max vs median task duration and shuffle read size.</td></tr>
+</table>
+<div class="box say">"First I'd check the key distribution: tower 1 has 1.2M rows vs ~600 for a typical tower. To show the effect on the job, I'd look at rows per partition after the join's shuffle, or the task metrics in the Spark UI."</div>
+
+<!-- Part 3 -->
+<h3 id="m2-p3">Part 3: Unique callers per region</h3>
+<div class="box int">The team also wants the <b>number of unique callers per region</b> (a caller with 50 Downtown calls counts once). Does 'aggregate first' still protect you from skew? If not, fix it.</div>
+
+<h4>Step 1: Predict</h4>
+<div class="box say">"<code>count</code> and <code>sum</code> were safe because partial results can be added. Distinct counts can't: if two partitions each have 1,000 unique Downtown callers, the total is anywhere from 1,000 to 2,000. Also, callers are unique <b>per region</b>, so I can't sum per-tower unique counts: a caller who used three Downtown towers would count three times. I need to attach the region to each call first."</div>
+<p><b>Corrections from the first attempt:</b> one partition holds <i>many</i> keys (but all rows of one key go to one partition), and since we now group by region, the hot key is <code>"Downtown"</code>.</p>
+
+<h4>Step 2: Plan</h4>
+<pre><code># 1. keep only tower_id, caller_id
+# 2. broadcast-join towers to get region per call (no shuffle)
+# 3. null region -&gt; 'Unknown'
+# 4. bucket callers by HASH of caller_id -&gt; countDistinct per (region, bucket) -&gt; sum per region
+# 5. check against plain countDistinct</code></pre>
+
+<h4>Step 3: Code</h4>
+<pre><code>base = (cdr.select("tower_id", "caller_id")
+    .join(F.broadcast(towers), "tower_id", "left")
+    .fillna({"region": "Unknown"})
+    .select("region", "caller_id"))
+
+# simple version (skew risk on Downtown)
+naive = base.groupBy("region").agg(F.countDistinct("caller_id").alias("unique_callers"))
+
+# salted version
+N = 8
+salted = base.withColumn("bucket", F.pmod(F.hash("caller_id"), F.lit(N)))   # pmod: never negative
+
+per_bucket = (salted.groupBy("region", "bucket")
+    .agg(F.countDistinct("caller_id").alias("callers_in_bucket")))
+
+unique_callers = (per_bucket.groupBy("region")
+    .agg(F.sum("callers_in_bucket").alias("unique_callers"))
+    .orderBy(F.desc("unique_callers")))
+
+# check: should be 0
+check = naive.join(unique_callers, "region").filter(naive.unique_callers != unique_callers.unique_callers)
+print("mismatches:", check.count())</code></pre>
+<pre class="out"><code>+--------+--------------+
+|  region|unique_callers|
++--------+--------------+
+|Downtown|        100000|
+| Unknown|        ~86000|
+|Region_0|        ~45000|
+|     ...|           ...|
++--------+--------------+</code></pre>
+
+<h4>⭐ Hash salt, not random salt</h4>
+<pre><code> RANDOM salt  (wrong for distinct)       HASH salt  (correct)
+ caller 42 → bucket 1, 3, 6              caller 42 → always bucket 5
+ counted 3 times ❌                       counted once ✅</code></pre>
+<div class="box say">"Random salt is fine for <b>sums</b>, since any split of numbers adds back up. For <b>distinct counts</b> it double-counts: one caller's calls land in several buckets. With <code>hash(caller_id) % N</code> a caller always lands in the same bucket, so the buckets hold <b>disjoint</b> sets of callers and summing their distinct counts is exact. Downtown is now spread over 8 tasks."</div>
+
+<h4>Bonus points</h4>
+<p><b>Approximate is OK?</b></p>
+<pre><code>approx = base.groupBy("region").agg(
+    F.approx_count_distinct("caller_id", rsd=0.01).alias("approx_unique_callers"))</code></pre>
+<div class="box say">"<code>approx_count_distinct</code> uses HyperLogLog sketches, which <b>can</b> be merged, so Spark pre-aggregates them like a sum: no skew, little memory, ~1% error. Fine for a planning dashboard, not for billing."</div>
+<p><b>Simplest alternative:</b> <code>base.distinct().groupBy("region").count()</code>. <code>distinct()</code> shuffles by (region, caller_id), spreading Downtown out. Effectively the same idea as the hash salt.</p>
+<p><b>Spark already helps:</b> <code>naive.explain()</code> shows Spark rewrites a single <code>countDistinct</code> into two aggregation steps (first by region + caller_id). Doing it by hand matters with several distinct counts, or for operations Spark can't split (<code>collect_set</code>, percentiles, windows partitioned by a hot key).</p>
+<p><b>Don't add regions up:</b> the same caller appears in many regions, so company-wide unique callers needs its own <code>countDistinct</code>.</p>
+
+<h3 id="m2-sum">Skew summary</h3>
+<table>
+<tr><th>Situation</th><th>Skew?</th><th>Fix</th></tr>
+<tr><td><code>count</code> / <code>sum</code> / <code>avg</code> by a hot key</td><td>Mostly no: pre-aggregated before the shuffle</td><td>Aggregate before joining</td></tr>
+<tr><td>Join raw data to a <b>small</b> table on a hot key</td><td><b>Yes</b></td><td><b>Broadcast</b> the small table</td></tr>
+<tr><td>Join two <b>large</b> tables on a hot key</td><td><b>Yes</b></td><td>AQE skew join → isolate hot key → salt + replicate</td></tr>
+<tr><td><code>countDistinct</code> by a hot key</td><td>Some risk</td><td>Hash salt on the distinct column, <code>distinct()</code> first, or <code>approx_count_distinct</code></td></tr>
+<tr><td><code>collect_list</code>, percentile, window <code>partitionBy(hot_key)</code></td><td><b>Yes</b>: can't be pre-aggregated</td><td>Isolate the hot key, or rethink the logic</td></tr>
+<tr><td>Null keys</td><td>Yes: all nulls hash to one partition</td><td>Filter out, process separately, union back</td></tr>
+</table>
+<div class="box good"><b>The rule behind all of it:</b> can this operation be split into pieces and combined afterwards? If yes, Spark mostly handles the skew. If no, split the work yourself, and make sure the split keeps the answer correct.</div>
+</section>
+
+<!-- ===================================================== CHEAT SHEET -->
+<section class="page" id="cheat">
+<h2>Cheat sheet</h2>
+<p class="sub">Review this the night before.</p>
+
+<h3>The flow for every problem</h3>
+<ol>
+<li><b>Look</b> at the data (<code>.show()</code>, <code>.printSchema()</code>).</li>
+<li><b>Ask</b> 2–4 questions: noticed → question → my default.</li>
+<li><b>Plan</b> as numbered comments, read aloud.</li>
+<li><b>Predict</b> the output.</li>
+<li><b>Type</b> (quiet is fine: "give me a minute").</li>
+<li><b>Explain</b> the output and cross-check against earlier answers.</li>
+<li><b>Re-read the spec</b>: one row per what? Every sub-part done?</li>
+<li><b>Raise trade-offs and edge cases</b> before they ask.</li>
+</ol>
+
+<h3>Patterns to know by heart</h3>
+<pre><code># Aggregate before join (same grain)
+agg = facts.groupBy("key").agg(F.sum("x").alias("total"), F.count("*").alias("n"))
+out = dims.join(agg, "key", "left").fillna({"total": 0, "n": 0})
+
+# Dedup: keep one row per group, deterministically
+w = Window.partitionBy(*keys).orderBy("order_id")
+ranked = df.withColumn("rn", F.row_number().over(w))
+clean, removed = ranked.filter("rn = 1"), ranked.filter("rn &gt; 1")
+
+# Running total
+w = (Window.partitionBy("id").orderBy("date", "tiebreak")
+     .rowsBetween(Window.unboundedPreceding, Window.currentRow))
+df.withColumn("running", F.sum("amount").over(w))
+
+# Previous row / % change
+w = Window.orderBy("month")
+df.withColumn("prev", F.lag("rev").over(w))
+
+# Latest row per group
+w = Window.partitionBy("id").orderBy(F.desc("date"), F.desc("order_id"))
+
+# Dates
+F.to_date("s")  ·  F.trunc("d", "month")  ·  F.datediff(end, start)  ·  F.date_add(d, n)
+
+# Broadcast a small table
+big.join(F.broadcast(small), "key", "left")
+
+# Check for skew
+df.groupBy("key").count().orderBy(F.desc("count")).show(10)
+df.repartition(8, "key").withColumn("pid", F.spark_partition_id()).groupBy("pid").count().show()
+
+# Salting a SUM (random salt OK)
+s = df.withColumn("salt", (F.rand() * 10).cast("int"))
+s.groupBy("key", "salt").agg(F.sum("x").alias("p")).groupBy("key").agg(F.sum("p"))
+
+# Salting a DISTINCT COUNT (hash salt required)
+s = df.withColumn("b", F.pmod(F.hash("user"), F.lit(8)))
+s.groupBy("key", "b").agg(F.countDistinct("user").alias("u")).groupBy("key").agg(F.sum("u"))</code></pre>
+
+<h3>Gotchas interviewers like</h3>
+<table>
+<tr><th>Gotcha</th><th>Detail</th></tr>
+<tr><td><code>sum</code> of all nulls</td><td>Returns <b>null</b>, not 0.</td></tr>
+<tr><td><code>count("*")</code> vs <code>count(col)</code></td><td>The second skips nulls. Compare them to find missing values.</td></tr>
+<tr><td>Filling nulls by reflex</td><td>Ask what a null <i>means</i> first (Dave vs Eve).</td></tr>
+<tr><td>Ties in <code>orderBy</code></td><td>Non-deterministic. Add a tiebreaker.</td></tr>
+<tr><td><code>dropDuplicates</code></td><td>Keeps an arbitrary row. Use <code>row_number</code> when there's a rule.</td></tr>
+<tr><td><code>rank</code> for dedup</td><td>Ties both get 1 and both survive. Use <code>row_number</code>.</td></tr>
+<tr><td>Window frame default</td><td>With <code>orderBy</code> it's <code>rangeBetween</code>: same-value rows are summed together. Use <code>rowsBetween</code>.</td></tr>
+<tr><td>Window without <code>partitionBy</code></td><td>Everything goes to one partition. Only OK on small, aggregated data.</td></tr>
+<tr><td><code>lag</code> and gaps</td><td>Previous <i>row</i>, not previous month. Build a calendar if gaps are possible.</td></tr>
+<tr><td><code>datediff</code></td><td>End date first, then start.</td></tr>
+<tr><td>Rounding</td><td>Round at the end, not per row.</td></tr>
+<tr><td>Average of averages</td><td>Wrong. Carry sums and counts.</td></tr>
+<tr><td>Summing distinct counts</td><td>Only valid across <b>disjoint</b> groups (hash buckets), never across regions/towers.</td></tr>
+<tr><td>Null join keys</td><td>Never match; all hash to one partition.</td></tr>
+<tr><td>Broadcast in a left join</td><td>Only the <b>right</b> side can be broadcast.</td></tr>
+<tr><td>More executors for skew</td><td>Doesn't help: one key always goes to one task.</td></tr>
+<tr><td><code>append</code> on rerun</td><td>Not idempotent → duplicates. Use MERGE or partition overwrite.</td></tr>
+<tr><td>Incremental by business date</td><td>Misses late data. Use ingestion time + lookback window.</td></tr>
+</table>
+
+<h3>Skew in 30 seconds</h3>
+<div class="box">
+<p><b>What:</b> a few keys have far more rows; in a shuffle each key goes to one task; one task does most of the work.</p>
+<p><b>Spot:</b> Spark UI median vs max task time · <code>groupBy(key).count()</code> · rows per partition after shuffle.</p>
+<p><b>Fix, in order:</b> 1. handle nulls/placeholder keys separately · 2. aggregate before joining · 3. broadcast the small side · 4. AQE skew join (<code>spark.sql.adaptive.skewJoin.enabled</code>) · 5. salting (hash salt for distinct) · 6. approximate functions if acceptable.</p>
+<p><b>Trade-offs:</b> broadcast must fit in memory · salting adds a second aggregation and complexity · approximate ≈1% error.</p>
+</div>
+
+<h3>Performance in one line</h3>
+<div class="box good"><b>Read less, shuffle less, act less.</b> Parquet/Delta + partition by date (pruning, pushdown) · filter and select early · aggregate before joins · broadcast small tables · avoid extra actions, cache only what's reused · AQE on, tune shuffle partitions.</div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var tabs = document.querySelectorAll('#tabs button');
+  function show(id){
+    document.querySelectorAll('.page').forEach(function(p){p.classList.toggle('active', p.id===id)});
+    tabs.forEach(function(b){b.classList.toggle('active', b.dataset.page===id)});
+    try{ localStorage.setItem('prepTab', id); }catch(e){}
+  }
+  tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.dataset.page); window.scrollTo(0,0); }); });
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var t = document.getElementById(a.getAttribute('href').slice(1));
+      if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth'}); }
+    });
+  });
+  try{ var saved = localStorage.getItem('prepTab'); if(saved && document.getElementById(saved)) show(saved); }catch(e){}
+
+  document.querySelectorAll('pre:not(.out)').forEach(function(pre){
+    var btn = document.createElement('button');
+    btn.className = 'copy'; btn.textContent = 'Copy';
+    btn.addEventListener('click', function(){
+      var text = pre.querySelector('code').innerText;
+      navigator.clipboard.writeText(text).then(function(){ btn.textContent='Copied'; setTimeout(function(){btn.textContent='Copy'},1200); });
+    });
+    pre.appendChild(btn);
+  });
+
+  var root = document.documentElement;
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    var dark = root.dataset.theme ? root.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+  });
+})();
+</script>
+</body>
+</html>
