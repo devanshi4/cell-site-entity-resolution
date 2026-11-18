@@ -509,6 +509,7 @@ final   = partial.groupBy("customer_id").agg(F.sum("part_sum").alias("total"))</
   <li><a href="#m2-part">How partitions work</a></li>
   <li><a href="#m2-p2">Part 2: Prove the skew</a></li>
   <li><a href="#m2-p3">Part 3: Unique callers</a></li>
+  <li><a href="#m2-salt">Salting deep dive</a></li>
   <li><a href="#m2-sum">Skew summary</a></li>
 </ul>
 
@@ -762,6 +763,140 @@ print("mismatches:", check.count())</code></pre>
 <p><b>Spark already helps:</b> <code>naive.explain()</code> shows Spark rewrites a single <code>countDistinct</code> into two aggregation steps (first by region + caller_id). Doing it by hand matters with several distinct counts, or for operations Spark can't split (<code>collect_set</code>, percentiles, windows partitioned by a hot key).</p>
 <p><b>Don't add regions up:</b> the same caller appears in many regions, so company-wide unique callers needs its own <code>countDistinct</code>.</p>
 
+<h3 id="m2-salt">Salting deep dive</h3>
+<p class="sub">Random vs hash salt, salting a join when both tables are big, and how to choose N.</p>
+
+<div class="box good"><b>Key idea:</b> salting <i>deliberately splits</i> one hot key across several buckets. That's what fixes the skew. A second <code>groupBy</code> on the key alone (or a join on key + salt) puts the pieces back together. The real question is: <b>what has to stay together for the answer to be correct?</b> That decides which salt to use.</div>
+
+<h4>Side by side: random salt vs hash salt</h4>
+<p>Tower 1 has 6 calls, split into <b>2 buckets</b>. Correct answers: <b>6 calls</b>, <b>3 unique callers</b> (A, B, C).</p>
+<pre class="out"><code>call_id  caller
+c1       A
+c2       A
+c3       B
+c4       C
+c5       A
+c6       B</code></pre>
+
+<div class="grid2">
+<div class="box">
+<p><b>Random salt</b><br><code>(F.rand() * 2).cast("int")</code></p>
+<p>Each <b>row</b> is assigned by chance:</p>
+<pre class="out"><code>Bucket 0: c1 A, c3 B, c6 B
+Bucket 1: c2 A, c4 C, c5 A</code></pre>
+<table>
+<tr><th>bucket</th><th>calls</th><th>unique callers</th></tr>
+<tr><td>0</td><td>3</td><td>2 (A, B)</td></tr>
+<tr><td>1</td><td>3</td><td>2 (A, C)</td></tr>
+<tr><td><b>sum</b></td><td><b>6 ✅</b></td><td><b>4 ❌</b></td></tr>
+</table>
+<p>Caller A is in <b>both</b> buckets, so A is counted twice.</p>
+<p>✅ <b>Perfectly even split</b> (3 and 3)</p>
+</div>
+<div class="box">
+<p><b>Hash salt</b><br><code>F.pmod(F.hash("caller_id"), F.lit(2))</code></p>
+<p>Each <b>caller</b> always lands in the same bucket (A→1, B→0, C→1):</p>
+<pre class="out"><code>Bucket 0: c3 B, c6 B
+Bucket 1: c1 A, c2 A, c4 C, c5 A</code></pre>
+<table>
+<tr><th>bucket</th><th>calls</th><th>unique callers</th></tr>
+<tr><td>0</td><td>2</td><td>1 (B)</td></tr>
+<tr><td>1</td><td>4</td><td>2 (A, C)</td></tr>
+<tr><td><b>sum</b></td><td><b>6 ✅</b></td><td><b>3 ✅</b></td></tr>
+</table>
+<p>Each caller is in exactly one bucket, so the counts add up correctly.</p>
+<p>⚠️ <b>Less even</b> (2 and 4)</p>
+</div>
+</div>
+
+<p>Hash salting is only as even as the column you hash. If caller A were a robocaller with 1 million calls, bucket 1 would still be huge. <b>Random salt is the most even split possible</b>, and that's why it exists: use it when <b>nothing needs to stay together</b>. A sum, count, min or max gives the same answer however you split the rows.</p>
+
+<table>
+<tr><th>Operation</th><th>What must stay together?</th><th>Salt to use</th></tr>
+<tr><td><code>sum</code>, <code>count</code>, <code>min</code>, <code>max</code></td><td>Nothing</td><td>Random (most even)</td></tr>
+<tr><td><code>countDistinct("caller_id")</code></td><td>All rows of the same <b>caller</b></td><td><code>hash(caller_id)</code></td></tr>
+<tr><td>Join (both tables large)</td><td>Each row must still meet its matching rows on the other side</td><td>Random or hash on one side, <b>copies</b> on the other (below)</td></tr>
+<tr><td>Running total per key</td><td>All rows of the key, in order</td><td>Salting doesn't work simply. Rethink the logic.</td></tr>
+</table>
+
+<div class="box warn"><b>Caution about <code>F.rand()</code>:</b> if Spark retries a failed task, it recomputes <code>rand()</code>, and rows can get <b>different salts</b> the second time. For a sum that's harmless. In a join it can cause missing or duplicated rows. A safer choice is <code>F.pmod(F.hash("call_id"), F.lit(N))</code>: because <code>call_id</code> is unique, it spreads rows almost as evenly as random, but every rerun gives the same salt. Think of it as "random, but repeatable".</div>
+
+<h4>When both tables are big and you can't broadcast</h4>
+<p><b>Scenario:</b> join <code>cdr</code> (2 billion rows, tower 1 = 60%) with <code>tower_signal_logs</code> (also billions of rows, signal readings every few seconds per tower). Neither fits in memory, so Spark uses a <b>sort-merge join</b>, and all of tower 1 from both sides goes to one task.</p>
+
+<p><b>Step 0: let Spark try first.</b></p>
+<div class="box say">"First I'd make sure <b>AQE skew join</b> is enabled. It's on by default in Spark 3. It detects partitions much larger than the median (by default more than 5× the median and over 256 MB), splits them into smaller pieces, and copies the matching partition from the other side. That's automatic salting. I'd salt by hand only if AQE doesn't handle it, for example with an unsupported join type, or if it's still too slow."</div>
+
+<p><b>Why random salt on both sides fails:</b> tower-1 rows in <code>cdr</code> with salt 3 need tower-1 rows in <code>logs</code> with salt 3. But each <code>logs</code> row got only <b>one</b> random salt, so most matches are lost.</p>
+
+<p><b>The fix: salt the big skewed side, copy the other side.</b></p>
+<pre class="out"><code>cdr  (salt each row 0..N-1)        logs (copy each tower-1 row N times)
+tower 1, salt 0  ─────────────────► tower 1, salt 0
+tower 1, salt 1  ─────────────────► tower 1, salt 1
+tower 1, salt 2  ─────────────────► tower 1, salt 2
+...                                 ...
+join ON (tower_id, salt)</code></pre>
+<p>Each <code>cdr</code> row has exactly one salt and <code>logs</code> has a copy for every salt, so each <code>cdr</code> row finds its match <b>exactly once</b>: no lost rows, no duplicates, and tower 1's work is spread over N tasks.</p>
+
+<p><b>Only salt the hot keys.</b> Copying the other side N times is expensive, so leave everything else as a normal join:</p>
+<pre><code>N = 8
+hot = [1]   # found with groupBy("tower_id").count()
+
+# Big skewed side: hot keys get a salt 0..N-1, everything else gets 0
+cdr_s = cdr.withColumn("salt",
+    F.when(F.col("tower_id").isin(hot), F.pmod(F.hash("call_id"), F.lit(N)))
+     .otherwise(F.lit(0)))
+
+# Other side: hot keys copied N times (one per salt), everything else once with salt 0
+logs_s = (logs
+    .withColumn("salts",
+        F.when(F.col("tower_id").isin(hot), F.sequence(F.lit(0), F.lit(N - 1)))
+         .otherwise(F.array(F.lit(0))))
+    .withColumn("salt", F.explode("salts"))
+    .drop("salts"))
+
+joined = cdr_s.join(logs_s, ["tower_id", "salt"]).drop("salt")</code></pre>
+<p>Only tower 1's rows in <code>logs</code> are copied N times; the other 999 towers are unaffected. <b>Alternative:</b> split the job into two joins (hot keys one way, everything else normally) and <code>union</code> the results. Same idea, written differently.</p>
+<div class="box warn"><b>Edge case:</b> if tower 1 is huge on <b>both</b> sides, the join <i>output</i> for tower 1 is huge too (every call × every log row). Salting spreads the work but can't shrink the output. Then question the join itself, e.g. aggregate the logs per minute first.</div>
+
+<h4>How to choose N</h4>
+<p>N = 8 in the mock was mostly arbitrary: it matched the 8 shuffle partitions in Colab. The proper way:</p>
+<div class="box good"><b>Goal:</b> each bucket of the hot key should be about the size of a normal task.<br>
+<b>N ≈ rows (or bytes) of the hot key ÷ rows (or bytes) in a typical partition</b></div>
+
+<table>
+<tr><th></th><th>Colab mock</th><th>Production</th></tr>
+<tr><td>Hot key (tower 1)</td><td>~1.2 million rows</td><td>60% of 2 billion = ~1.2 billion rows</td></tr>
+<tr><td>Typical / target task</td><td>~75,000 rows</td><td>~128–256 MB of shuffle data, say ~5 million rows</td></tr>
+<tr><td><b>N</b></td><td>1.2M ÷ 75k ≈ <b>16</b></td><td>1.2B ÷ 5M ≈ <b>240</b></td></tr>
+</table>
+<p>With N = 8 in Colab each bucket is ~150,000 rows, twice a normal task: much better than 16×, but <b>16 would have been the better choice</b>.</p>
+
+<table>
+<tr><th>N too small</th><th>N too large</th></tr>
+<tr><td>The hot key's buckets are still bigger than normal tasks, so it stays partly skewed.</td><td>
+<b>Aggregation:</b> N partial rows per key, a small extra cost.<br>
+<b>Join:</b> the other side is copied N times. This is the <b>real</b> cost, so in joins use the smallest N that fixes the problem.<br>
+Tiny tasks: scheduling overhead outweighs the work.
+</td></tr>
+</table>
+
+<ul>
+<li><b>Different hot keys can get different N.</b> Tower 1 with 1.2 billion rows → N = 240; tower 7 with 50 million → N = 10.</li>
+<li><b>Measure, then adjust.</b> Start with the estimate, run it, check the Spark UI. Max task time still far above the median → increase N. Copied side blowing up → decrease it.</li>
+<li><b>Get the numbers cheaply:</b> <code>groupBy("tower_id").count()</code> for the hot key's size; Spark UI shuffle-read sizes for typical task size.</li>
+</ul>
+
+<div class="box say">"I'd choose N so each piece of the hot key is roughly the size of a normal task: the hot key's size divided by a typical partition's size. With 1.2 billion rows on the hot key and around 5 million rows per healthy task, that's about 240. In a join I'd keep N as small as works, because the other side is copied N times. I'd salt only the hot keys, and check the Spark UI afterwards to tune it."</div>
+
+<h4>Salting in four lines</h4>
+<ol>
+<li><b>Salting deliberately splits a hot key.</b> The second <code>groupBy</code> (or the join on key + salt) puts it back together correctly.</li>
+<li><b>What must stay together decides the salt:</b> nothing → random (most even); a distinct column → hash of that column; a join → random/hash on one side and <b>copies</b> on the other.</li>
+<li><b>Both-big joins:</b> AQE skew join first → salt only the hot keys → watch the cost of copying.</li>
+<li><b>N ≈ hot-key size ÷ normal task size.</b> Bigger isn't free, especially in joins.</li>
+</ol>
+
 <h3 id="m2-sum">Skew summary</h3>
 <table>
 <tr><th>Situation</th><th>Skew?</th><th>Fix</th></tr>
@@ -830,7 +965,16 @@ s.groupBy("key", "salt").agg(F.sum("x").alias("p")).groupBy("key").agg(F.sum("p"
 
 # Salting a DISTINCT COUNT (hash salt required)
 s = df.withColumn("b", F.pmod(F.hash("user"), F.lit(8)))
-s.groupBy("key", "b").agg(F.countDistinct("user").alias("u")).groupBy("key").agg(F.sum("u"))</code></pre>
+s.groupBy("key", "b").agg(F.countDistinct("user").alias("u")).groupBy("key").agg(F.sum("u"))
+
+# Salting a JOIN (both big): salt hot keys on the big side, copy them N times on the other
+big_s   = big.withColumn("salt", F.when(F.col("key").isin(hot), F.pmod(F.hash("id"), F.lit(N))).otherwise(F.lit(0)))
+other_s = (other.withColumn("salts", F.when(F.col("key").isin(hot), F.sequence(F.lit(0), F.lit(N - 1)))
+                                      .otherwise(F.array(F.lit(0))))
+                .withColumn("salt", F.explode("salts")).drop("salts"))
+big_s.join(other_s, ["key", "salt"]).drop("salt")
+
+# Choosing N: hot-key rows ÷ rows in a normal task (e.g. 1.2B ÷ 5M ≈ 240)</code></pre>
 
 <h3>Gotchas interviewers like</h3>
 <table>
