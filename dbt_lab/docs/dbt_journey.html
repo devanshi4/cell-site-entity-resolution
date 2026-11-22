@@ -151,6 +151,15 @@ pre {
 .hl { background: var(--teal-soft); color: var(--teal); padding: 1px 4px; border-radius: 3px; }
 .hl-dbt { background: var(--amber-soft); color: var(--amber); padding: 1px 4px; border-radius: 3px; }
 
+.path { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.path ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.path li { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 10px; align-items: baseline; font-size: 0.92rem; }
+.path li .n { font-family: var(--font-mono); color: var(--muted); font-size: 0.8rem; }
+.path li .s { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.path li .s.done { background: var(--teal-soft); color: var(--teal); }
+.path li .s.now { background: var(--amber-soft); color: var(--amber); }
+.path li .s.later { color: var(--muted); }
+.path .rhythm { font-size: 0.88rem; color: var(--muted); }
 .next-card {
   border: 1px dashed var(--teal); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px;
   background: var(--surface);
@@ -177,9 +186,26 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#source-ref">2 · source() and ref()</a>
     <a href="#file-name">3 · File name = table name</a>
     <a href="#run-it">4 · Run it</a>
-    <a href="#next" class="next">Next: view or table?</a>
+    <a href="#view-table">5 · View or table?</a>
+    <a href="#next" class="next">Next: build the dimension</a>
   </nav>
 </header>
+
+<!-- LEARNING PATH -->
+<section class="path" aria-label="Learning path">
+  <h3>The learning path</h3>
+  <p class="rhythm">We build one small pipeline (cell sites) from start to end, one new idea per step. Every step follows the same rhythm: build it, run it, look at the result, ask questions, then move on.</p>
+  <ol>
+    <li><span class="n">0–4</span><span>The flow, why dbt exists, source() and ref(), file name = table name, running dbt</span><span class="s done">Done</span></li>
+    <li><span class="n">5</span><span>View or table?</span><span class="s done">Done</span></li>
+    <li><span class="n">6</span><span>Build the dimension from the cleaning step, using ref()</span><span class="s now">Next</span></li>
+    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s later">Later</span></li>
+    <li><span class="n">8</span><span>Make dbt check the data (tests)</span><span class="s later">Later</span></li>
+    <li><span class="n">9</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
+    <li><span class="n">10</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
+    <li><span class="n">11+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
+  </ol>
+</section>
 
 <!-- STEP 0 -->
 <section class="step" id="big-picture">
@@ -318,6 +344,7 @@ from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span></pre>
     <div class="step-num">Step 4</div>
     <h2>Run it and look at the result</h2>
   </div>
+  <p class="lede">In order, this step built only the cleaning step, <code>stg_telecom__cell_sites</code>. The command below also built the dimension, which skipped ahead; Step 6 builds the dimension properly.</p>
   <p>dbt has no window of its own. You type commands in a <b>terminal</b> (Terminal on Mac, PowerShell on Windows, or the terminal panel in VS Code), from inside the <code>dbt_lab</code> folder.</p>
 
   <h3>One-time setup</h3>
@@ -372,12 +399,57 @@ from <span class="dbtpart">"telecom"."raw"."cell_sites"</span>      <span class=
   <div class="takeaway"><span>Takeaway</span>dbt run turned two SELECT files into one view and one table, in the right order, and target/run/ shows the exact SQL it ran.</div>
 </section>
 
+<!-- STEP 5 -->
+<section class="step" id="view-table">
+  <div class="step-head">
+    <div class="step-num">Step 5</div>
+    <h2>View or table? The folder decides</h2>
+  </div>
+  <p>The answer is in <code>dbt_project.yml</code>. Every file inside a folder gets that folder's setting:</p>
+<pre><span class="kw">models</span>:
+  telecom_dbt:
+    staging:                   <span class="cm"># every file in models/staging/ ...</span>
+      <span class="dbtpart">+materialized: view</span>      <span class="cm"># ... becomes a VIEW</span>
+    marts:                     <span class="cm"># every file in models/marts/ ...</span>
+      <span class="dbtpart">+materialized: table</span>     <span class="cm"># ... becomes a TABLE</span></pre>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>models/<span class="hl">staging</span>/telecom/stg_telecom__cell_sites.sql</td><td>→ <b>view</b></td></tr>
+      <tr><td>models/<span class="hl">marts</span>/core/dim_cell_site.sql</td><td>→ <b>table</b></td></tr>
+    </table>
+  </div>
+  <p>dbt calls this setting the <b>materialization</b>: the one word that decides whether dbt writes <code>create view</code> or <code>create table</code> around your SELECT.</p>
+  <div class="compare">
+    <div class="col">
+      <h3>View</h3>
+      <p>A <b>saved query</b>. No data is stored. Each time someone reads it, the SELECT runs again on the raw table.</p>
+<pre><span class="dbtpart">create view</span> main_staging.stg_telecom__cell_sites
+<span class="dbtpart">as</span> ( select ... )</pre>
+      <ul>
+        <li>Good for the cleaning step: light work that only other dbt models read.</li>
+        <li>No second copy of the data.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Table</h3>
+      <p>The SELECT runs <b>once</b> during <code>dbt run</code>, and the results are <b>stored</b>. Reading it later is fast.</p>
+<pre><span class="dbtpart">create table</span> main_marts.dim_cell_site
+<span class="dbtpart">as</span> ( select ... )</pre>
+      <ul>
+        <li>Good for dimensions and facts: dashboards query them all day.</li>
+        <li>Fast to read, because the work is already done.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>The folder sets the default: staging = view, marts = table. The setting is called the materialization and lives in dbt_project.yml.</div>
+</section>
+
 <!-- NEXT -->
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Why did one become a view and the other a table?</h3>
-    <p>We open <code>dbt_project.yml</code> and find the two lines that decided it.</p>
+    <h3>Build the dimension from the cleaning step</h3>
+    <p>We open <code>dim_cell_site.sql</code>, see how it uses <code>ref()</code> to read the cleaning step, run only that model, and look at the table it creates.</p>
   </div>
 </section>
 
