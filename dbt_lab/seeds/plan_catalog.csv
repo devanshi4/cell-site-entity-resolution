@@ -1,0 +1,4 @@
+plan_code,plan_name,monthly_fee,per_minute_rate,per_mb_rate,per_sms_rate
+BASIC,Basic Talk,199.00,0.50,0.10,0.25
+STANDARD,Standard Plus,399.00,0.30,0.05,0.10
+PREMIUM,Premium Unlimited,799.00,0.00,0.00,0.00

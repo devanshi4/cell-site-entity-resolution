@@ -8,6 +8,9 @@ with **Spark SQL + Iceberg** (locally first, then **S3 + EMR Serverless + Glue**
 **Start with the learning guide:** open [`docs/learning-guide.html`](docs/learning-guide.html) in a browser.
 Concise talking points live in [`docs/interview-notes.md`](docs/interview-notes.md).
 
+**New: dbt mission.** [`dbt_lab/`](dbt_lab/README.md) is a self-contained dbt project (DuckDB, runs locally)
+that teaches sources/ref, YAML, star schemas, incremental models and SCD2 snapshots in 5 sections.
+
 ## Setup (local)
 
 Uses the same versions as `spark-perf-lab`: Java 17 or 21, Python 3.9–3.13, PySpark 4.0.5.

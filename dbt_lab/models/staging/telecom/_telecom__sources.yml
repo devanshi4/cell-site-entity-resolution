@@ -1,0 +1,44 @@
+version: 2
+
+# A SOURCE declares a raw table that something OTHER than dbt loaded.
+# Declaring it gives you:  {{ source('telecom', 'call_events') }}  instead of a hard-coded name,
+# lineage in the DAG / docs, source tests, and freshness checks.
+sources:
+  - name: telecom               # the name you use in source('telecom', ...)
+    description: "Raw OSS/BSS feeds landed nightly by the ingestion tool (scripts/load_raw.py here)."
+    schema: raw                 # the real schema in the warehouse (can differ from `name`)
+    # database: raw_db          # needed on Snowflake/BigQuery when raw data is in another database
+
+    # Freshness: `dbt source freshness` warns/fails when the newest row is too old.
+    # (Our fake data is from March 2026, so this WILL error if you run it. That is what a
+    #  dead upstream pipeline looks like. In real life this is the first alarm you set up.)
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+
+    tables:
+      - name: customers
+        description: "CRM export. Overwritten daily with CURRENT state only; history is lost upstream."
+        freshness: null         # overwritten table without a load timestamp -> no freshness check
+        columns:
+          - name: customer_id
+            data_tests: [unique, not_null]
+
+      - name: cell_sites
+        description: "Network inventory of cell sites."
+        freshness: null
+        columns:
+          - name: site_id
+            data_tests: [unique, not_null]
+
+      - name: call_events
+        description: "CDRs from the mediation platform. Append-only; may contain duplicates, corrections and late events."
+        loaded_at_field: _loaded_at         # column used by the freshness check
+        columns:
+          - name: event_id
+            description: "Mediation event id. NOT unique in raw: re-sends and corrections reuse the id."
+            data_tests:
+              - not_null
+              - unique:
+                  config:
+                    severity: warn          # we KNOW raw has dupes; warn so we see it, staging fixes it

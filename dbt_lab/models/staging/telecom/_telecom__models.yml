@@ -1,0 +1,54 @@
+version: 2
+
+# PROPERTIES file: documents and tests the models in this folder.
+# One entry per model -> description, column docs, tests. `dbt docs generate` turns this into a website.
+models:
+  - name: stg_telecom__call_events
+    description: "One row per call event (deduplicated: latest delivery of each event_id wins)."
+    columns:
+      - name: event_id
+        description: "Primary key."
+        data_tests: [unique, not_null]           # the raw source warned on dupes; here it must pass
+      - name: event_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["VOICE", "SMS", "DATA"]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:                       # every event must belong to a known customer
+              arguments:
+                to: ref('stg_telecom__customers_history')
+                field: customer_id
+      - name: site_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_telecom__cell_sites')
+                field: site_id
+      - name: duration_sec
+        data_tests: [non_negative]               # our own generic test: tests/generic/non_negative.sql
+
+  - name: stg_telecom__cell_sites
+    description: "One row per cell site."
+    columns:
+      - name: site_id
+        data_tests: [unique, not_null]
+      - name: technology
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["4G", "5G"]
+
+  - name: stg_telecom__customers_history
+    description: "Cleaned customer history: one row per customer per VERSION (from the snapshot)."
+    columns:
+      - name: dbt_scd_id
+        data_tests: [unique, not_null]
+      - name: plan_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('plan_catalog')
+                field: plan_code

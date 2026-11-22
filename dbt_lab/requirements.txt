@@ -1,0 +1,4 @@
+# dbt Core + the DuckDB adapter (DuckDB = a local, file-based warehouse; no cloud account needed).
+# In a company you'd install dbt-snowflake / dbt-bigquery / dbt-redshift / dbt-athena instead.
+dbt-core>=1.9,<2.0
+dbt-duckdb>=1.9,<2.0

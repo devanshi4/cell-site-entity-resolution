@@ -1,0 +1,8 @@
+# the local "warehouse" file (rebuilt by scripts/load_raw.py + dbt build)
+*.duckdb
+*.duckdb.wal
+# dbt build output
+target/
+logs/
+dbt_packages/
+.user.yml

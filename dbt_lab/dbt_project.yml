@@ -1,0 +1,42 @@
+# dbt_project.yml = WHAT the project is and the DEFAULT config for every folder.
+# Config precedence (most specific wins):  config() inside a .sql file  >  properties .yml  >  this file.
+
+name: telecom_dbt
+version: "1.0.0"
+profile: telecom_dbt          # which block in profiles.yml to use for the connection
+
+# Where dbt looks for each kind of file (these are the defaults, written out so you can see them)
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+
+clean-targets: ["target", "dbt_packages"]   # what `dbt clean` deletes
+
+# Project-wide variables, read in SQL with {{ var('name') }}; override with --vars '{...}'
+vars:
+  date_spine_start: "2026-01-01"
+  date_spine_end: "2026-12-31"
+
+# Folder-level defaults. The "+" prefix means "this is a config, not a sub-folder name".
+models:
+  telecom_dbt:
+    staging:
+      +materialized: view     # cheap, always fresh, just renames/casts/cleans
+      +schema: staging        # -> lands in main_staging
+    marts:
+      +materialized: table    # what BI tools query: precomputed for speed
+      core:
+        +schema: marts        # -> main_marts (facts & dimensions)
+      reporting:
+        +schema: reporting    # -> main_reporting (pre-aggregated, dashboard-shaped)
+
+seeds:
+  telecom_dbt:
+    +schema: seeds
+
+snapshots:
+  telecom_dbt:
+    +schema: snapshots

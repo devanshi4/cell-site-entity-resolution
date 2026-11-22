@@ -1,0 +1,27 @@
+# SNAPSHOT = dbt's built-in SCD Type 2. Each `dbt snapshot` (or `dbt build`) run compares the
+# source to the snapshot table and, for every changed row, CLOSES the old version (sets
+# dbt_valid_to) and INSERTS the new version. It is the only dbt object that keeps history the
+# source does not have, so if you drop this table, that history is gone forever.
+#
+# This is the YAML syntax (dbt 1.9+). The older syntax, still everywhere in company code, is:
+#   {% snapshot snap_customers %}
+#   {{ config(target_schema='snapshots', unique_key='customer_id',
+#             strategy='timestamp', updated_at='updated_at') }}
+#   select * from {{ source('telecom', 'customers') }}
+#   {% endsnapshot %}
+snapshots:
+  - name: snap_customers
+    relation: source('telecom', 'customers')   # snapshot the RAW source: capture truth before any logic
+    description: "SCD2 history of the CRM customer table."
+    config:
+      unique_key: customer_id           # the business key; must be unique in the source
+      strategy: timestamp               # "a row changed if its updated_at is newer than what I stored"
+      updated_at: updated_at
+      # Alternative when the source has no reliable updated_at:
+      #   strategy: check
+      #   check_cols: [email, city, plan_code, status]   # or 'all'
+      dbt_valid_to_current: "cast('9999-12-31 00:00:00' as timestamp)"   # open rows get a far-future date, not NULL
+      # hard_deletes: invalidate        # what to do if a customer disappears from the source (ignore|invalidate|new_record)
+    columns:
+      - name: customer_id
+        data_tests: [not_null]

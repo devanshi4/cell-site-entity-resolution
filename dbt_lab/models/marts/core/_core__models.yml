@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: >
+      SCD Type 2 customer dimension. One row per customer per version.
+      Join facts with `event_time >= valid_from and event_time < valid_to`.
+    columns:
+      - name: customer_sk
+        description: "Surrogate key: one per customer VERSION."
+        data_tests: [unique, not_null]
+      - name: customer_id
+        description: "Natural key from the CRM. Repeats across versions."
+        data_tests: [not_null]
+      - name: valid_from
+        description: "Version start (inclusive). Comes from CRM updated_at."
+      - name: valid_to
+        description: "Version end (exclusive). 9999-12-31 for the current version."
+      - name: is_current
+        description: "True for the latest version of each customer."
+
+  - name: dim_cell_site
+    description: "Type 1 cell site dimension (current attributes only)."
+    columns:
+      - name: site_id
+        data_tests: [unique, not_null]
+
+  - name: dim_plan
+    description: "Tariff plans, from the plan_catalog seed."
+    columns:
+      - name: plan_code
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    description: "Calendar date spine."
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+
+  - name: fct_calls
+    description: >
+      Incremental fact of call/SMS/data events. Grain: one row per event_id.
+      Priced with the plan the customer had AT THE TIME of the event.
+    config:
+      tags: ["finance"]                  # run just these with: dbt build --select tag:finance
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: customer_sk
+        description: "Customer version at event time. NULL would mean the point-in-time join failed."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+      - name: usage_charge
+        data_tests: [not_null, non_negative]
+
+# UNIT TESTS (dbt 1.8+): test the SQL LOGIC with tiny hand-made inputs, no real data needed.
+# Data tests (above) check the data; unit tests check that your code computes the right thing.
+unit_tests:
+  - name: fct_calls_prices_with_plan_valid_at_call_time
+    description: "A customer upgrades BASIC -> PREMIUM at 10:00. A call at 08:00 is billed BASIC, at 15:00 is free."
+    model: fct_calls
+    overrides:
+      macros:
+        is_incremental: false            # test the full-load path
+    given:
+      - input: ref('stg_telecom__call_events')
+        rows:
+          - {event_id: E1, customer_id: C1, site_id: S1, event_type: VOICE, started_at: "2026-03-02 08:00:00", event_date: "2026-03-02", duration_sec: 61, data_mb: 0, _loaded_at: "2026-03-03 01:00:00"}
+          - {event_id: E2, customer_id: C1, site_id: S1, event_type: VOICE, started_at: "2026-03-02 15:00:00", event_date: "2026-03-02", duration_sec: 61, data_mb: 0, _loaded_at: "2026-03-03 01:00:00"}
+      - input: ref('dim_customer')
+        rows:
+          - {customer_sk: v1, customer_id: C1, plan_code: BASIC,   city: Pune, valid_from: "2026-01-01 00:00:00", valid_to: "2026-03-02 10:00:00"}
+          - {customer_sk: v2, customer_id: C1, plan_code: PREMIUM, city: Pune, valid_from: "2026-03-02 10:00:00", valid_to: "9999-12-31 00:00:00"}
+      - input: ref('dim_plan')
+        rows:
+          - {plan_code: BASIC,   per_minute_rate: 0.50, per_mb_rate: 0.10, per_sms_rate: 0.25}
+          - {plan_code: PREMIUM, per_minute_rate: 0.00, per_mb_rate: 0.00, per_sms_rate: 0.00}
+    expect:
+      rows:
+        - {event_id: E1, customer_sk: v1, plan_code: BASIC,   billable_minutes: 2, usage_charge: 1.00}   # 61 s -> 2 min x 0.50
+        - {event_id: E2, customer_sk: v2, plan_code: PREMIUM, billable_minutes: 2, usage_charge: 0.00}

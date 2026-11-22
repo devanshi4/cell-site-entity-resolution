@@ -1,0 +1,32 @@
+# profiles.yml = HOW dbt connects to the warehouse (credentials, target, threads).
+# It is normally NOT committed — it lives in ~/.dbt/profiles.yml on your laptop, and
+# CI / Airflow inject it with secrets. We keep it in the project only because DuckDB has no secrets.
+# dbt looks in the current directory first, so run dbt commands from inside dbt_lab/.
+
+telecom_dbt:            # <- must match `profile:` in dbt_project.yml
+  target: dev           # default target; switch with `dbt build --target prod`
+  outputs:
+    dev:
+      type: duckdb
+      path: telecom.duckdb   # the whole warehouse is this one file
+      schema: main           # your "personal" dev schema; custom schemas get appended: main_staging, main_marts
+      threads: 4             # how many models dbt builds in parallel
+
+    # What a real company target looks like (example only, not used here):
+    # prod:
+    #   type: athena                       # dbt-athena adapter -> Glue catalog + S3 + Iceberg
+    #   s3_staging_dir: s3://my-athena-results/
+    #   region_name: us-east-1
+    #   database: awsdatacatalog
+    #   schema: analytics
+    #   work_group: primary
+    #   threads: 8
+    # prod (Snowflake):
+    #   type: snowflake
+    #   account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+    #   user: "{{ env_var('SNOWFLAKE_USER') }}"
+    #   password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"   # secrets come from env vars, never the file
+    #   role: TRANSFORMER
+    #   warehouse: TRANSFORMING
+    #   database: ANALYTICS
+    #   schema: dbt_prod

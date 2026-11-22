@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: rpt_daily_usage_by_city
+    description: "Daily usage and revenue by city and plan. Backs the 'Network Usage' dashboard."
+    config:
+      contract: {enforced: true}     # dbt FAILS the build if the SQL output doesn't match these columns/types
+    columns:
+      - {name: event_date,       data_type: date, data_tests: [not_null]}
+      - {name: day_name,         data_type: varchar}
+      - {name: is_weekend,       data_type: boolean}
+      - {name: city,             data_type: varchar}
+      - {name: plan_code,        data_type: varchar}
+      - {name: events,           data_type: bigint}
+      - {name: active_customers, data_type: bigint}
+      - {name: billable_minutes, data_type: hugeint}
+      - {name: data_mb,          data_type: hugeint}
+      - {name: usage_revenue,    data_type: "decimal(38,2)"}
+
+# EXPOSURES: declare WHO uses the output. They show in the DAG and docs, so before you change
+# fct_calls you can see that a finance dashboard depends on it. (dbt doesn't build these.)
+exposures:
+  - name: network_usage_dashboard
+    label: "Network Usage & Revenue (Tableau)"
+    type: dashboard
+    maturity: high
+    url: https://tableau.example.com/views/network-usage
+    description: "Daily usage/revenue by city for the Network Planning and Finance teams."
+    owner:
+      name: BI Team
+      email: bi-team@example.com
+    depends_on:
+      - ref('rpt_daily_usage_by_city')
+
+  - name: churn_model_features
+    label: "Churn prediction features (Data Science)"
+    type: ml
+    maturity: medium
+    description: "Data scientists read plan/status history to train a churn model."
+    owner:
+      name: Data Science
+      email: ds-team@example.com
+    depends_on:
+      - ref('dim_customer')
+      - ref('fct_calls')

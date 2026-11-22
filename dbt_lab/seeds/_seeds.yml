@@ -1,0 +1,18 @@
+version: 2
+
+# Seeds = small, slowly changing CSVs that live in git and are loaded with `dbt seed`.
+# Good for: lookup/mapping tables owned by the data team (plan catalog, country codes).
+# Bad for:  real data. Never put source extracts or anything big in a seed.
+seeds:
+  - name: plan_catalog
+    description: "Tariff plans and their usage rates (INR). Owned by the pricing team, edited via pull request."
+    config:
+      column_types:            # without this dbt guesses types from the CSV
+        plan_code: varchar
+        monthly_fee: decimal(10,2)
+        per_minute_rate: decimal(10,2)
+        per_mb_rate: decimal(10,2)
+        per_sms_rate: decimal(10,2)
+    columns:
+      - name: plan_code
+        data_tests: [unique, not_null]
