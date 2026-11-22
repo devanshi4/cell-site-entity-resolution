@@ -176,7 +176,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#why-dbt">1 · Why dbt exists</a>
     <a href="#source-ref">2 · source() and ref()</a>
     <a href="#file-name">3 · File name = table name</a>
-    <a href="#next" class="next">Next: run it</a>
+    <a href="#run-it">4 · Run it</a>
+    <a href="#next" class="next">Next: view or table?</a>
   </nav>
 </header>
 
@@ -311,12 +312,72 @@ from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span></pre>
   <div class="takeaway"><span>Takeaway</span>File name = model name = table name. ref() uses that same name.</div>
 </section>
 
+<!-- STEP 4 -->
+<section class="step" id="run-it">
+  <div class="step-head">
+    <div class="step-num">Step 4</div>
+    <h2>Run it and look at the result</h2>
+  </div>
+  <p>dbt has no window of its own. You type commands in a <b>terminal</b> (Terminal on Mac, PowerShell on Windows, or the terminal panel in VS Code), from inside the <code>dbt_lab</code> folder.</p>
+
+  <h3>One-time setup</h3>
+<pre><span class="cm"># 1. get the project and go into the dbt folder</span>
+cd telecom_aws
+git fetch origin claude/youthful-thompson-wi7w7p
+git checkout claude/youthful-thompson-wi7w7p
+cd dbt_lab
+
+<span class="cm"># 2. install dbt in its own Python environment</span>
+python3 -m venv .venv
+source .venv/bin/activate        <span class="cm"># Windows: .venv\Scripts\activate</span>
+pip install -r requirements.txt
+
+<span class="cm"># 3. load the raw data (plays the loading tool)</span>
+python scripts/load_raw.py --day 1</pre>
+
+  <h3>The dbt command</h3>
+<pre>dbt run --select stg_telecom__cell_sites dim_cell_site</pre>
+  <p><code>dbt run</code> builds models. <code>--select</code> names which ones, using the <b>file names without .sql</b>.</p>
+
+  <h3>What dbt printed</h3>
+<pre>1 of 2 OK created sql view model  main_staging.stg_telecom__cell_sites
+2 of 2 OK created sql table model main_marts.dim_cell_site
+Completed successfully</pre>
+  <div class="flow" role="img" aria-label="dbt built the staging view first, then the dimension table">
+    <div class="node raw"><b>raw.cell_sites</b><small>Already there</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>1 of 2</b><small>View <code>main_staging.stg_telecom__cell_sites</code></small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>2 of 2</b><small>Table <code>main_marts.dim_cell_site</code></small></div>
+  </div>
+  <p>dbt built them in the right order on its own. It read the <code>ref()</code> inside <code>dim_cell_site.sql</code> and knew the cleaning step had to come first.</p>
+
+  <h3>The SQL dbt actually ran</h3>
+  <p>Your file had only the <code>select</code>. Everything in amber below was added by dbt. Find it in <code>target/run/</code>:</p>
+<pre><span class="dbtpart">create view "telecom"."main_staging"."stg_telecom__cell_sites__dbt_tmp" as (</span>
+    select
+    site_id,
+    trim(site_name)       as site_name,
+    trim(city)            as city,
+    upper(technology)     as technology,
+    latitude,
+    longitude
+from <span class="dbtpart">"telecom"."raw"."cell_sites"</span>      <span class="cm">-- was {{ source('telecom', 'cell_sites') }}</span>
+<span class="dbtpart">);</span></pre>
+  <p>The <code>__dbt_tmp</code> ending is dbt building under a temporary name and renaming it at the end, so the real table is never half-built.</p>
+
+  <h3>Look at the result</h3>
+<pre>python scripts/query.py "select * from main_marts.dim_cell_site"</pre>
+  <p>You get the 4 cell sites, cleaned. The extra <code>cell_site_sk</code> column is an ID column; we'll cover it later.</p>
+  <div class="takeaway"><span>Takeaway</span>dbt run turned two SELECT files into one view and one table, in the right order, and target/run/ shows the exact SQL it ran.</div>
+</section>
+
 <!-- NEXT -->
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Run it and look at the result</h3>
-    <p>We run <code>dbt run</code> on just these two models, then look at the two tables dbt created in the warehouse and the SQL it actually ran.</p>
+    <h3>Why did one become a view and the other a table?</h3>
+    <p>We open <code>dbt_project.yml</code> and find the two lines that decided it.</p>
   </div>
 </section>
 
