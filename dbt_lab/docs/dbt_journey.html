@@ -187,7 +187,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#file-name">3 · File name = table name</a>
     <a href="#run-it">4 · Run it</a>
     <a href="#view-table">5 · View or table?</a>
-    <a href="#next" class="next">Next: build the dimension</a>
+    <a href="#build-dim">6 · Build the dimension</a>
+    <a href="#next" class="next">Next: the sources YAML file</a>
   </nav>
 </header>
 
@@ -198,8 +199,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
   <ol>
     <li><span class="n">0–4</span><span>The flow, why dbt exists, source() and ref(), file name = table name, running dbt</span><span class="s done">Done</span></li>
     <li><span class="n">5</span><span>View or table?</span><span class="s done">Done</span></li>
-    <li><span class="n">6</span><span>Build the dimension from the cleaning step, using ref()</span><span class="s now">Next</span></li>
-    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s later">Later</span></li>
+    <li><span class="n">6</span><span>Build the dimension from the cleaning step, using ref()</span><span class="s done">Done</span></li>
+    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s now">Next</span></li>
     <li><span class="n">8</span><span>Make dbt check the data (tests)</span><span class="s later">Later</span></li>
     <li><span class="n">9</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
     <li><span class="n">10</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
@@ -444,12 +445,61 @@ from <span class="dbtpart">"telecom"."raw"."cell_sites"</span>      <span class=
   <div class="takeaway"><span>Takeaway</span>The folder sets the default: staging = view, marts = table. The setting is called the materialization and lives in dbt_project.yml.</div>
 </section>
 
+<!-- STEP 6 -->
+<section class="step" id="build-dim">
+  <div class="step-head">
+    <div class="step-num">Step 6</div>
+    <h2>Build the dimension</h2>
+  </div>
+  <p>Before this step, the warehouse had the raw table and your cleaning view. Now we add the dimension on top.</p>
+
+  <h3>The file: models/marts/core/dim_cell_site.sql</h3>
+<pre>select
+    {{ surrogate_key(['site_id']) }} as cell_site_sk,   <span class="cm">-- a unique ID per site</span>
+    site_id,
+    site_name,
+    city,
+    technology,
+    latitude,
+    longitude
+from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span>              <span class="cm">-- reads YOUR cleaning step</span></pre>
+  <p>Still one SELECT. It reads from the cleaning step with <code>ref()</code>, never from the raw table. The first line uses a small helper (<code>surrogate_key</code>) to give each site its own ID. We'll look inside helpers later.</p>
+
+  <h3>Run only this model</h3>
+<pre>dbt run --select dim_cell_site
+
+1 of 1 OK created sql table model main_marts.dim_cell_site
+Done. PASS=1</pre>
+  <p><code>1 of 1</code>: dbt built just this one model and read from the cleaning view that already existed. It became a <b>table</b> because the file is in <code>marts/</code>.</p>
+
+  <h3>The warehouse now</h3>
+  <div class="chain" role="img" aria-label="raw.cell_sites table, then stg_telecom__cell_sites view, then dim_cell_site table">
+    <div class="node raw"><b>raw.cell_sites</b><small>Table · raw data, loaded by another tool</small></div>
+    <div class="link">source()</div>
+    <div class="node you"><b>main_staging.stg_telecom__cell_sites</b><small>View · your cleaning step (Step 4)</small></div>
+    <div class="link">ref()</div>
+    <div class="node you"><b>main_marts.dim_cell_site</b><small>Table · your dimension (new)</small></div>
+  </div>
+
+  <h3>Look at it</h3>
+<pre>python scripts/query.py "select site_id, site_name, city, technology from main_marts.dim_cell_site"
+
+S01  Bandra West Macro   Mumbai  5G
+S02  Andheri East Small  Mumbai  4G
+S03  Hinjewadi Phase 1   Pune    4G
+S04  Connaught Place     Delhi   5G</pre>
+
+  <h3>What dbt turned ref() into</h3>
+<pre>from <span class="dbtpart">"telecom"."main_staging"."stg_telecom__cell_sites"</span>    <span class="cm">-- was {{ ref('stg_telecom__cell_sites') }}</span></pre>
+  <div class="takeaway"><span>Takeaway</span>The dimension is one SELECT that reads the cleaning step through ref(). Because it sits in marts/, dbt stores it as a table.</div>
+</section>
+
 <!-- NEXT -->
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Build the dimension from the cleaning step</h3>
-    <p>We open <code>dim_cell_site.sql</code>, see how it uses <code>ref()</code> to read the cleaning step, run only that model, and look at the table it creates.</p>
+    <h3>Where is source('telecom', 'cell_sites') defined?</h3>
+    <p>We open your first YAML file, the one that tells dbt where the raw table lives, and see how the two names inside source() come from it.</p>
   </div>
 </section>
 
