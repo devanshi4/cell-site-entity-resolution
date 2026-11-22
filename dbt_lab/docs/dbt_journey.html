@@ -188,7 +188,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#run-it">4 · Run it</a>
     <a href="#view-table">5 · View or table?</a>
     <a href="#build-dim">6 · Build the dimension</a>
-    <a href="#next" class="next">Next: the sources YAML file</a>
+    <a href="#sources-yaml">7 · The sources YAML file</a>
+    <a href="#next" class="next">Next: tests</a>
   </nav>
 </header>
 
@@ -200,8 +201,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">0–4</span><span>The flow, why dbt exists, source() and ref(), file name = table name, running dbt</span><span class="s done">Done</span></li>
     <li><span class="n">5</span><span>View or table?</span><span class="s done">Done</span></li>
     <li><span class="n">6</span><span>Build the dimension from the cleaning step, using ref()</span><span class="s done">Done</span></li>
-    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s now">Next</span></li>
-    <li><span class="n">8</span><span>Make dbt check the data (tests)</span><span class="s later">Later</span></li>
+    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s done">Done</span></li>
+    <li><span class="n">8</span><span>Make dbt check the data (tests)</span><span class="s now">Next</span></li>
     <li><span class="n">9</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
     <li><span class="n">10</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
     <li><span class="n">11+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
@@ -494,12 +495,71 @@ S04  Connaught Place     Delhi   5G</pre>
   <div class="takeaway"><span>Takeaway</span>The dimension is one SELECT that reads the cleaning step through ref(). Because it sits in marts/, dbt stores it as a table.</div>
 </section>
 
+<!-- STEP 7 -->
+<section class="step" id="sources-yaml">
+  <div class="step-head">
+    <div class="step-num">Step 7</div>
+    <h2>Where source('telecom', 'cell_sites') comes from</h2>
+  </div>
+  <p>The two names come from a YAML file that sits next to your cleaning model:</p>
+<pre>models/staging/telecom/
+├── <span class="kw">_telecom__sources.yml</span>        <span class="cm">← this file</span>
+└── stg_telecom__cell_sites.sql</pre>
+  <p>These are the only lines that matter for <code>source()</code>. The real file has a few extra lines (descriptions and checks) that we cover later.</p>
+<pre>version: 2
+
+sources:
+  - name: <span class="hl">telecom</span>          <span class="cm"># 1st name in source('telecom', ...)</span>
+    schema: <span class="hl-dbt">raw</span>            <span class="cm"># where the raw tables really are</span>
+    tables:
+      - name: <span class="hl">cell_sites</span>   <span class="cm"># 2nd name in source(..., 'cell_sites')</span></pre>
+  <p>In plain words: there is a group of raw tables I call <code>telecom</code>. They live in the schema <code>raw</code>. One of them is <code>cell_sites</code>.</p>
+
+  <h3>How dbt turns it into a real table name</h3>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>You write</td><td><code>source('<span class="hl">telecom</span>', '<span class="hl">cell_sites</span>')</code></td></tr>
+      <tr><td>dbt looks up</td><td><code>- name: telecom</code> → finds <code>schema: <span class="hl-dbt">raw</span></code>, then <code>- name: cell_sites</code> under tables</td></tr>
+      <tr><td>dbt writes</td><td><code>"telecom"."<span class="hl-dbt">raw</span>"."<span class="hl">cell_sites</span>"</code></td></tr>
+    </table>
+  </div>
+  <p>The first <code>"telecom"</code> in the result is the <b>database</b>. DuckDB names it after the file <code>telecom.duckdb</code>, so matching the group name is a coincidence. In a company it might be <code>RAW_DB.raw.cell_sites</code>.</p>
+
+  <h3>See it work, and see it break</h3>
+  <div class="compare">
+    <div class="col">
+      <h3>Correct name <span class="tag good">works</span></h3>
+<pre>dbt compile --inline \
+ "select * from {{ source('telecom', 'cell_sites') }}"
+
+select * from "telecom"."raw"."cell_sites"</pre>
+    </div>
+    <div class="col">
+      <h3>Typo <span class="tag bad">error</span></h3>
+<pre>dbt compile --inline \
+ "select * from {{ source('telecom', 'cell_site') }}"
+
+depends on a source named
+'telecom.cell_site' which was not found</pre>
+    </div>
+  </div>
+  <p>dbt catches the typo before anything touches the database, because the name is not in the YAML file.</p>
+
+  <h3>Why bother with this file?</h3>
+  <ul>
+    <li><b>One place to change.</b> If raw tables move from schema <code>raw</code> to <code>raw_v2</code>, you change one line, and every model that uses <code>source()</code> follows.</li>
+    <li><b>Typos are caught early</b>, as above.</li>
+    <li><b>dbt knows where your data comes from.</b> The raw table shows as the start of the chain when dbt draws your pipeline.</li>
+  </ul>
+  <div class="takeaway"><span>Takeaway</span>source('telecom', 'cell_sites') looks up both names in the sources YAML file, which says where the raw table really lives.</div>
+</section>
+
 <!-- NEXT -->
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Where is source('telecom', 'cell_sites') defined?</h3>
-    <p>We open your first YAML file, the one that tells dbt where the raw table lives, and see how the two names inside source() come from it.</p>
+    <h3>Make dbt check the data</h3>
+    <p>We add two simple checks to the cell sites (no empty IDs, no duplicate IDs), run them, and see what a pass and a fail look like.</p>
   </div>
 </section>
 
