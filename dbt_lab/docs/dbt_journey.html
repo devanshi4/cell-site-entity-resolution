@@ -1,0 +1,324 @@
+<title>dbt Learning Journal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one calm reading column; each step is a chapter with a picture first, then a few lines, then a one-line takeaway. */
+:root {
+  --bg: #f6f8f8;
+  --surface: #ffffff;
+  --ink: #17262b;
+  --muted: #5a6b70;
+  --line: #d8e1e2;
+  --teal: #0f7c80;        /* things YOU write */
+  --teal-soft: #e2f2f2;
+  --amber: #b86a12;       /* things dbt does for you */
+  --amber-soft: #fbf0e1;
+  --slate-soft: #eceff3;  /* things that already exist (raw data) */
+  --code-bg: #eef3f3;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111a1c; --surface: #172326; --ink: #e3ecec; --muted: #9aaeb1; --line: #2a3b3f;
+    --teal: #4cc3c6; --teal-soft: #14383a; --amber: #f0a64e; --amber-soft: #3a2a14;
+    --slate-soft: #222e33; --code-bg: #1c2b2e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111a1c; --surface: #172326; --ink: #e3ecec; --muted: #9aaeb1; --line: #2a3b3f;
+  --teal: #4cc3c6; --teal-soft: #14383a; --amber: #f0a64e; --amber-soft: #3a2a14;
+  --slate-soft: #222e33; --code-bg: #1c2b2e; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+}
+.wrap {
+  max-width: 780px; margin: 0 auto;
+  padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; max-width: 65ch; }
+code, pre { font-family: var(--font-mono); font-size: 0.88rem; }
+p code, li code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+
+header { display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+.lede { color: var(--muted); font-size: 1.05rem; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 0.85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--line); }
+.sw.raw { background: var(--slate-soft); }
+.sw.you { background: var(--teal-soft); border-color: var(--teal); }
+.sw.dbt { background: var(--amber-soft); border-color: var(--amber); }
+
+nav.steps { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.steps a {
+  text-decoration: none; color: var(--ink); font-size: 0.85rem;
+  border: 1px solid var(--line); background: var(--surface);
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.steps a:hover, nav.steps a:focus-visible { border-color: var(--teal); outline: none; }
+nav.steps a.next { color: var(--muted); border-style: dashed; }
+
+section.step { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 20px; }
+.step-head { display: flex; flex-direction: column; gap: 4px; padding-top: 22px; border-top: 1px solid var(--line); }
+.step-num { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+
+/* Flow diagram boxes */
+.flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+.node {
+  flex: 1 1 140px; min-width: 0;
+  padding: 14px 14px; border-radius: 8px; border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.node b { font-family: var(--font-display); font-size: 0.98rem; }
+.node small { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+.node code { font-size: 0.78rem; word-break: break-all; }
+.node.raw { background: var(--slate-soft); }
+.node.you { background: var(--teal-soft); border-color: var(--teal); }
+.node.dbt { background: var(--amber-soft); border-color: var(--amber); }
+.arrow {
+  flex: 0 0 34px; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 1.2rem;
+}
+.arrow .lbl { display: none; }
+@media (max-width: 620px) {
+  .flow { flex-direction: column; }
+  .node { flex: 1 1 auto; }
+  .arrow { flex: 0 0 30px; transform: rotate(90deg); }
+}
+
+/* labelled vertical chain */
+.chain { display: flex; flex-direction: column; gap: 0; }
+.link {
+  display: flex; align-items: center; gap: 10px; padding: 6px 0 6px 22px;
+  border-left: 2px dashed var(--line); margin-left: 22px; color: var(--muted); font-size: 0.85rem;
+}
+.link code { color: var(--teal); background: var(--code-bg); padding: 2px 8px; border-radius: 4px; }
+
+/* two columns compare */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 620px) { .compare { grid-template-columns: 1fr; } }
+.col {
+  min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.col h3 { display: flex; align-items: center; gap: 8px; }
+.tag { font-family: var(--font-body); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.tag.bad { background: var(--slate-soft); color: var(--muted); }
+.tag.good { background: var(--teal-soft); color: var(--teal); }
+.col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+
+pre {
+  margin: 0; background: var(--code-bg); border-radius: 8px; padding: 12px 14px;
+  overflow-x: auto; line-height: 1.5;
+}
+.kw { color: var(--teal); font-weight: 500; }
+.dbtpart { color: var(--amber); font-weight: 500; }
+.cm { color: var(--muted); }
+
+.takeaway {
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--teal);
+  border-radius: 6px; padding: 12px 16px; font-weight: 500;
+}
+.takeaway span { display: block; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin-bottom: 2px; }
+
+.qa { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.qa .q { font-weight: 600; }
+.qa .q::before { content: "Your question · "; color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+
+/* filename mapping table */
+.map { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.map-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.map td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.map tr:last-child td { border-bottom: none; }
+.map td:first-child { color: var(--muted); white-space: nowrap; width: 1%; }
+.map code { font-size: 0.85rem; }
+.hl { background: var(--teal-soft); color: var(--teal); padding: 1px 4px; border-radius: 3px; }
+.hl-dbt { background: var(--amber-soft); color: var(--amber); padding: 1px 4px; border-radius: 3px; }
+
+.next-card {
+  border: 1px dashed var(--teal); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface);
+}
+.next-card .eyebrow { color: var(--muted); }
+footer { color: var(--muted); font-size: 0.82rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Telecom project · learning dbt one step at a time</div>
+  <h1>dbt Learning Journal</h1>
+  <p class="lede">One small step per section. Each one has a picture, a few lines, and a one-line takeaway. New steps get added at the bottom as we go.</p>
+  <div class="legend" aria-label="Colour key">
+    <span><i class="sw raw"></i>Already exists (raw data)</span>
+    <span><i class="sw you"></i>What you write</span>
+    <span><i class="sw dbt"></i>What dbt does for you</span>
+  </div>
+  <nav class="steps" aria-label="Steps">
+    <a href="#big-picture">0 · The big picture</a>
+    <a href="#why-dbt">1 · Why dbt exists</a>
+    <a href="#source-ref">2 · source() and ref()</a>
+    <a href="#file-name">3 · File name = table name</a>
+    <a href="#next" class="next">Next: run it</a>
+  </nav>
+</header>
+
+<!-- STEP 0 -->
+<section class="step" id="big-picture">
+  <div class="step-head">
+    <div class="step-num">Step 0</div>
+    <h2>The big picture: you already know this</h2>
+  </div>
+  <p>This is how every dbt project works. Data moves left to right, and each box is a table:</p>
+  <div class="flow" role="img" aria-label="raw table to cleaned table to business tables to facts and dimensions">
+    <div class="node raw"><b>Raw table</b><small>Loaded by another tool. Messy.</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>Cleaned table</b><small>Trim, rename, fix types.</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>Business tables</b><small>Joins and business rules.</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>Facts &amp; dimensions</b><small>What reports and dashboards use.</small></div>
+  </div>
+  <p>Each teal box is one SQL file that you write. Everything else we learn builds on this flow.</p>
+  <div class="takeaway"><span>Takeaway</span>dbt builds this chain of tables, one SQL file per table.</div>
+</section>
+
+<!-- STEP 1 -->
+<section class="step" id="why-dbt">
+  <div class="step-head">
+    <div class="step-num">Step 1</div>
+    <h2>Why dbt exists</h2>
+  </div>
+  <p>Picture building that chain with plain SQL scripts, compared with building it in dbt:</p>
+  <div class="compare">
+    <div class="col">
+      <h3>Plain SQL <span class="tag bad">without dbt</span></h3>
+<pre><span class="kw">create table</span> clean_cell_sites <span class="kw">as</span>
+select site_id,
+       trim(site_name) as site_name
+from raw.cell_sites;
+
+<span class="kw">create table</span> dim_cell_site <span class="kw">as</span>
+select site_id, site_name
+from clean_cell_sites;</pre>
+      <ul>
+        <li>You must remember to run script 1 before script 2, across 200 scripts.</li>
+        <li>You add <code>drop table if exists</code> everywhere.</li>
+        <li>Nobody notices bad data until a dashboard is wrong.</li>
+        <li>Testing a change overwrites the real table.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>dbt <span class="tag good">with dbt</span></h3>
+<pre><span class="cm">-- clean_cell_sites.sql</span>
+select site_id,
+       trim(site_name) as site_name
+from raw.cell_sites
+
+<span class="cm">-- dim_cell_site.sql</span>
+select site_id, site_name
+from <span class="dbtpart">{{ ref('clean_cell_sites') }}</span></pre>
+      <ul>
+        <li>You write only the <code>SELECT</code>, one per file.</li>
+        <li>dbt adds the <code>create table ... as</code> for you.</li>
+        <li>dbt sees the <code>ref()</code> and builds the clean table first.</li>
+        <li>You run everything with one command: <code>dbt run</code>.</li>
+      </ul>
+    </div>
+  </div>
+  <p>Here is what happens when you type <code>dbt run</code>:</p>
+  <div class="flow" role="img" aria-label="you write a select, dbt wraps it in create table, the table appears in the warehouse">
+    <div class="node you"><b>You write</b><small>A plain <code>SELECT</code> in a .sql file</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>dbt wraps it</b><small>Adds <code>create table … as</code> and works out the order</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>Warehouse</b><small>The table now exists and people can query it</small></div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>You write SELECT statements. dbt turns them into tables and runs them in the right order.</div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step" id="source-ref">
+  <div class="step-head">
+    <div class="step-num">Step 2</div>
+    <h2>source() first, then ref()</h2>
+  </div>
+  <div class="compare">
+    <div class="col">
+      <h3><code>source()</code></h3>
+      <p>Points at a <b>raw table that dbt did not make</b>. You use it once, in the first cleaning step.</p>
+    </div>
+    <div class="col">
+      <h3><code>ref()</code></h3>
+      <p>Points at a <b>table that dbt made</b> from one of your files. You use it for every step after that.</p>
+    </div>
+  </div>
+  <div class="chain" role="img" aria-label="raw.cell_sites, via source, to stg_telecom__cell_sites, via ref, to dim_cell_site">
+    <div class="node raw"><b>raw.cell_sites</b><small>Loaded by another tool</small></div>
+    <div class="link">uses <code>source('telecom', 'cell_sites')</code></div>
+    <div class="node you"><b>stg_telecom__cell_sites.sql</b><small>Your cleaning step</small></div>
+    <div class="link">uses <code>ref('stg_telecom__cell_sites')</code></div>
+    <div class="node you"><b>dim_cell_site.sql</b><small>Your dimension</small></div>
+  </div>
+<pre><span class="cm">-- stg_telecom__cell_sites.sql   (first step → source)</span>
+select site_id, trim(site_name) as site_name, upper(technology) as technology
+from <span class="dbtpart">{{ source('telecom', 'cell_sites') }}</span>
+
+<span class="cm">-- dim_cell_site.sql             (later step → ref)</span>
+select site_id, site_name, technology
+from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span></pre>
+  <p>In <code>source('telecom', 'cell_sites')</code>, <code>telecom</code> is a group name we chose for our raw tables and <code>cell_sites</code> is the table's name. We register them once in a small YAML file. We'll open that file together later.</p>
+  <div class="takeaway"><span>Takeaway</span>Raw data: source(). Anything dbt built: ref().</div>
+</section>
+
+<!-- STEP 3 -->
+<section class="step" id="file-name">
+  <div class="step-head">
+    <div class="step-num">Step 3</div>
+    <h2>The file name becomes the table name</h2>
+  </div>
+  <div class="qa">
+    <div class="q">Because we saved the file as stg_telecom__cell_sites.sql, it became the name of the view/table, and we can reference it using the same name?</div>
+    <div>Yes, exactly. There is no separate place where you name the table. The file name <b>is</b> the name.</div>
+  </div>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>You save the file</td><td><code><span class="hl">stg_telecom__cell_sites</span>.sql</code></td></tr>
+      <tr><td>dbt calls the model</td><td><code><span class="hl">stg_telecom__cell_sites</span></code> (the file name without <code>.sql</code>)</td></tr>
+      <tr><td>Created in the database</td><td><code><span class="hl-dbt">main_staging.</span><span class="hl">stg_telecom__cell_sites</span></code></td></tr>
+      <tr><td>Other files use it as</td><td><code>{{ ref('<span class="hl">stg_telecom__cell_sites</span>') }}</code></td></tr>
+    </table>
+  </div>
+  <p>You only ever type the name. dbt adds the <span class="hl-dbt">main_staging.</span> part in front for you. Where that comes from is a topic for a later step.</p>
+  <p>One rule follows from this: <b>every file name must be unique in the project</b>, because each name can belong to only one table.</p>
+  <div class="takeaway"><span>Takeaway</span>File name = model name = table name. ref() uses that same name.</div>
+</section>
+
+<!-- NEXT -->
+<section class="step" id="next">
+  <div class="next-card">
+    <div class="eyebrow">Next step</div>
+    <h3>Run it and look at the result</h3>
+    <p>We run <code>dbt run</code> on just these two models, then look at the two tables dbt created in the warehouse and the SQL it actually ran.</p>
+  </div>
+</section>
+
+<footer>Project files: <code>dbt_lab/</code> in the telecom_aws repo. This page grows as we learn.</footer>
+</div>
