@@ -3,17 +3,17 @@
 Run:  python data_generation/generate_sources.py
 
 Why hand-curated instead of random?
-  Every record below exists to teach something (an abbreviation, a duplicate, a
-  conflict, a near-miss). With only ~80 records you can inspect each one and
-  follow it through Bronze -> Silver -> Gold. The ground truth tells us which
-  physical site each record really describes, so we can measure our matching.
+  Each record tests one specific edge case: an abbreviation, a duplicate, a conflict,
+  a near-miss. With ~80 records, every one can be traced through Bronze -> Silver -> Gold.
+  The answer key records which physical site each record really describes, so match
+  quality can be measured (precision and recall) instead of eyeballed.
 
 Outputs
   data/raw/network_inventory/network_inventory.csv   (Source 1, CSV)
   data/raw/rf_planning/rf_planning.json             (Source 2, JSON Lines, nested)
   data/raw/field_operations/field_operations.parquet (Source 3, Parquet, typed)
   data/ground_truth/true_sites.csv                  (the real physical sites; no system has this)
-  data/ground_truth/ground_truth.csv                (source record -> true site, with the lesson it teaches)
+  data/ground_truth/ground_truth.csv                (source record -> true site, plus the edge case it tests)
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ TRUTH = ROOT / "data" / "ground_truth"
 
 # ---------------------------------------------------------------------------
 # The real world: physical cell sites. No source system has this table.
-# It is only used to (1) explain the data and (2) score our matching.
+# It is only used to document the data and to score the matching.
 # ---------------------------------------------------------------------------
 TRUE_SITES = [
     # key,   borough,         true name,                    true address,                       zip,    lat,        lon
@@ -69,7 +69,7 @@ INV_COLS = ["site_id", "site_name", "street_address", "city", "state", "zip_code
             "latitude", "longitude", "equipment_vendor", "equipment_model",
             "site_status", "last_updated"]
 
-# (row..., true_site, lesson)
+# (row..., true_site, edge case this record tests)
 INVENTORY = [
     (["NY-BRONX-017", "BRONX GRAND CONCOURSE", "1250 Grand Concourse", "Bronx", "NY", "10456", "40.834712", "-73.916521", "Ericsson", "AIR 6449", "ACTIVE", "2026-09-12"], "S01", "Primary record for the running example site"),
     (["NY-BX-0017", "Bronx - Grand Concourse (legacy)", "1250 GRAND CONCOURSE", "BRONX", "NY", "10456-2201", "40.8347", "-73.9165", "Ericsson", "AIR 3246", "ACTIVE", "2023-02-01"], "S01", "Entity duplicate INSIDE one source: legacy ID from an old migration, ZIP+4, 4-decimal coordinates, stale equipment"),

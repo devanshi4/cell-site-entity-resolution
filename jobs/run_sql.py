@@ -2,11 +2,9 @@
 
 Usage:  python jobs/run_sql.py sql/bronze/00_peek_sources.sql [--env local]
 
-Why this exists: SQL is the primary language of this project. Python only
-  1. starts Spark,
-  2. replaces ${KEY} placeholders with values from conf/<env>.env
-     (local paths now, s3:// paths on AWS later -- the SQL stays identical),
-  3. sends each statement to spark.sql() and prints what came back.
+The pipeline logic lives in SQL files. This runner only starts Spark, fills ${KEY}
+placeholders from conf/<env>.env (local paths now, s3:// paths on AWS later, so the SQL
+never changes), and runs each statement.
 """
 from __future__ import annotations
 
@@ -44,7 +42,7 @@ def split_statements(sql: str) -> list[str]:
 def build_local_session() -> SparkSession:
     spark = (
         SparkSession.builder.appName("telecom-er-local")
-        .master("local[2]")                       # 2 task slots: enough for ~80 rows, keeps the UI readable
+        .master("local[2]")                       # ~80 rows: 2 task slots is plenty
         .config("spark.sql.shuffle.partitions", "2")  # default 200 would create 200 tiny tasks per shuffle
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.ui.showConsoleProgress", "false")

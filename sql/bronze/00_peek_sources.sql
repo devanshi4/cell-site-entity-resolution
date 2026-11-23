@@ -1,44 +1,42 @@
 -- =====================================================================
--- Lesson 1: Look at the three sources BEFORE changing anything.
--- No tables are created. A TEMPORARY VIEW is only a named query that
--- lives inside this Spark session; nothing is written to disk.
+-- Bronze profiling: look at the three sources before changing anything.
+-- Temporary views only; nothing is written to disk.
 -- =====================================================================
 
--- Source 1: CSV. A CSV file has no types; every value is text.
--- header 'true'      -> first line holds column names
--- inferSchema 'false'-> keep every column as STRING (Bronze preserves the raw text)
+-- Source 1: CSV. inferSchema is off so every column stays STRING: Bronze keeps the raw text
+-- (a ZIP like 10456-2201 or a 4-decimal coordinate must not be "fixed" on read).
 CREATE OR REPLACE TEMPORARY VIEW raw_inventory
 USING csv
 OPTIONS (path '${RAW_ROOT}/network_inventory', header 'true', inferSchema 'false');
 
--- Source 2: JSON Lines. Spark scans the file once to discover the nested structure.
+-- Source 2: JSON Lines with nested location and antenna arrays.
 CREATE OR REPLACE TEMPORARY VIEW raw_rf
 USING json
 OPTIONS (path '${RAW_ROOT}/rf_planning');
 
--- Source 3: Parquet. The schema (with real TIMESTAMP types) is stored inside the file footer.
+-- Source 3: Parquet, already typed (timestamps included).
 CREATE OR REPLACE TEMPORARY VIEW raw_field_ops
 USING parquet
 OPTIONS (path '${RAW_ROOT}/field_operations');
 
--- What types did each source give us?
+-- Schema each source arrives with.
 DESCRIBE raw_inventory;
 DESCRIBE raw_rf;
 DESCRIBE raw_field_ops;
 
--- How many rows, and how many distinct IDs? (row count > distinct IDs means repeated IDs)
+-- Grain check: more rows than distinct IDs means an ID repeats (versions or resends).
 SELECT 'NETWORK_INVENTORY' AS source, COUNT(*) AS row_count, COUNT(DISTINCT site_id)       AS distinct_ids FROM raw_inventory
 UNION ALL
 SELECT 'RF_PLANNING',               COUNT(*),              COUNT(DISTINCT rf_site_id)                     FROM raw_rf
 UNION ALL
 SELECT 'FIELD_OPERATIONS',          COUNT(*),              COUNT(DISTINCT work_order_id)                  FROM raw_field_ops;
 
--- The running example: every record that mentions "Concourse", in each source.
+-- Running example: every record mentioning "Concourse" in each source.
 SELECT site_id, site_name, street_address, zip_code, latitude, longitude, equipment_model, last_updated
 FROM raw_inventory
 WHERE lower(site_name) LIKE '%concourse%' OR lower(street_address) LIKE '%concourse%';
 
--- location.latitude reaches INSIDE the nested struct; size() counts array elements.
+
 SELECT rf_site_id, site_description, location.latitude, location.longitude, location.region,
        technology, size(antennas) AS antenna_count, last_modified
 FROM raw_rf
