@@ -6,6 +6,12 @@ Three systems describe the same cell towers but share no common ID. This project
 
 > Part of my portfolio at **[devanshi4.github.io](https://devanshi4.github.io)**, which has an interactive demo of the matching
 
+## Highlights
+
+- **No shared key:** matches records across three systems that were never designed to agree, with 78 records, 24 real sites, and a hand-built edge case in every record.
+- **Scored, not eyeballed:** an answer key says which site every record truly belongs to, so matching is measured with precision and recall.
+- **Laptop to AWS without rewriting:** the same SQL runs locally and on S3, EMR Serverless and Glue. Only the paths change.
+
 ---
 
 ## The problem
