@@ -137,10 +137,6 @@ pre {
 }
 .takeaway span { display: block; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin-bottom: 2px; }
 
-.qa { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.qa .q { font-weight: 600; }
-.qa .q::before { content: "Your question · "; color: var(--muted); font-weight: 500; font-size: 0.85rem; }
-
 /* filename mapping table */
 .map { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 .map-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
@@ -167,6 +163,22 @@ pre {
 .next-card .eyebrow { color: var(--muted); }
 footer { color: var(--muted); font-size: 0.82rem; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+.part { display: flex; flex-direction: column; gap: 6px; padding: 18px 0 0; }
+.part .eyebrow { color: var(--muted); }
+.part h2 { font-size: 1.85rem; }
+.part p { color: var(--muted); }
+.from { display: flex; flex-direction: column; gap: 8px; }
+.from-row { display: grid; grid-template-columns: minmax(0, 12rem) 1fr; gap: 12px; align-items: baseline; font-size: 0.92rem; }
+@media (max-width: 620px) { .from-row { grid-template-columns: 1fr; gap: 2px; } }
+.from-row code { font-size: 0.85rem; }
+.from-row small { color: var(--muted); }
+.gloss { display: flex; flex-direction: column; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.gloss div { display: grid; grid-template-columns: minmax(0, 13rem) 1fr; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
+.gloss div:last-child { border-bottom: none; }
+@media (max-width: 620px) { .gloss div { grid-template-columns: 1fr; gap: 2px; } }
+.gloss dt { font-weight: 600; font-family: var(--font-display); }
+.gloss dd { margin: 0; }
+.gloss .not { color: var(--muted); font-size: 0.85rem; display: block; margin-top: 2px; }
 </style>
 
 <div class="wrap">
@@ -174,46 +186,52 @@ footer { color: var(--muted); font-size: 0.82rem; }
 <header>
   <div class="eyebrow">Telecom project · learning dbt one step at a time</div>
   <h1>dbt Learning Journal</h1>
-  <p class="lede">One small step per section. Each one has a picture, a few lines, and a one-line takeaway. New steps get added at the bottom as we go.</p>
+  <p class="lede">Read it from top to bottom. Part 1 covers the ideas you need before touching dbt. Part 2 builds the cell sites pipeline in the same order you would in a real project. Every step has a picture, a short explanation, and a one-line takeaway.</p>
   <div class="legend" aria-label="Colour key">
-    <span><i class="sw raw"></i>Already exists (raw data)</span>
+    <span><i class="sw raw"></i>Already exists (warehouse, raw data)</span>
     <span><i class="sw you"></i>What you write</span>
     <span><i class="sw dbt"></i>What dbt does for you</span>
   </div>
   <nav class="steps" aria-label="Steps">
-    <a href="#big-picture">0 · The big picture</a>
-    <a href="#why-dbt">1 · Why dbt exists</a>
-    <a href="#source-ref">2 · source() and ref()</a>
-    <a href="#file-name">3 · File name = table name</a>
-    <a href="#run-it">4 · Run it</a>
-    <a href="#view-table">5 · View or table?</a>
-    <a href="#build-dim">6 · Build the dimension</a>
-    <a href="#sources-yaml">7 · The sources YAML file</a>
+    <a href="#big-picture">1 · The big picture</a>
+    <a href="#warehouse">2 · How a warehouse is organised</a>
+    <a href="#why-dbt">3 · Why dbt exists</a>
+    <a href="#connect">4 · Connect to the warehouse</a>
+    <a href="#sources">5 · Point to the raw table</a>
+    <a href="#staging">6 · Write the cleaning model</a>
+    <a href="#run">7 · Run it</a>
+    <a href="#view-table">8 · View or table?</a>
+    <a href="#dim">9 · Build the dimension</a>
+    <a href="#words">Words to know</a>
     <a href="#next" class="next">Next: tests</a>
   </nav>
 </header>
 
-<!-- LEARNING PATH -->
 <section class="path" aria-label="Learning path">
   <h3>The learning path</h3>
-  <p class="rhythm">We build one small pipeline (cell sites) from start to end, one new idea per step. Every step follows the same rhythm: build it, run it, look at the result, ask questions, then move on.</p>
+  <p class="rhythm">One small pipeline (cell sites), built from start to end, one new idea per step. Each step: build it, run it, look at the result, ask questions, then move on.</p>
   <ol>
-    <li><span class="n">0–4</span><span>The flow, why dbt exists, source() and ref(), file name = table name, running dbt</span><span class="s done">Done</span></li>
-    <li><span class="n">5</span><span>View or table?</span><span class="s done">Done</span></li>
-    <li><span class="n">6</span><span>Build the dimension from the cleaning step, using ref()</span><span class="s done">Done</span></li>
-    <li><span class="n">7</span><span>Where source('telecom', 'cell_sites') is defined: your first YAML file</span><span class="s done">Done</span></li>
-    <li><span class="n">8</span><span>Make dbt check the data (tests)</span><span class="s now">Next</span></li>
-    <li><span class="n">9</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
-    <li><span class="n">10</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
-    <li><span class="n">11+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
+    <li><span class="n">1–3</span><span>Ideas: the flow, how a warehouse is organised, why dbt exists</span><span class="s done">Done</span></li>
+    <li><span class="n">4–9</span><span>Build cell sites: connect, point to raw, clean, run, view or table, dimension</span><span class="s done">Done</span></li>
+    <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s now">Next</span></li>
+    <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
+    <li><span class="n">12</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
+    <li><span class="n">13+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
   </ol>
 </section>
 
-<!-- STEP 0 -->
+<!-- ================= PART 1 ================= -->
+<div class="part">
+  <div class="eyebrow">Part 1</div>
+  <h2>The ideas</h2>
+  <p>Three things to understand before writing any dbt.</p>
+</div>
+
+<!-- STEP 1 -->
 <section class="step" id="big-picture">
   <div class="step-head">
-    <div class="step-num">Step 0</div>
-    <h2>The big picture: you already know this</h2>
+    <div class="step-num">Step 1</div>
+    <h2>The big picture</h2>
   </div>
   <p>This is how every dbt project works. Data moves left to right, and each box is a table:</p>
   <div class="flow" role="img" aria-label="raw table to cleaned table to business tables to facts and dimensions">
@@ -225,17 +243,48 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <div class="arrow">→</div>
     <div class="node you"><b>Facts &amp; dimensions</b><small>What reports and dashboards use.</small></div>
   </div>
-  <p>Each teal box is one SQL file that you write. Everything else we learn builds on this flow.</p>
+  <p>Each teal box is one SQL file you write. dbt never loads the raw data; another tool (Fivetran, Glue, Airbyte) puts it in the warehouse first. dbt only does the steps after that.</p>
   <div class="takeaway"><span>Takeaway</span>dbt builds this chain of tables, one SQL file per table.</div>
 </section>
 
-<!-- STEP 1 -->
+<!-- STEP 2 -->
+<section class="step" id="warehouse">
+  <div class="step-head">
+    <div class="step-num">Step 2</div>
+    <h2>How a warehouse is organised</h2>
+  </div>
+  <p>A warehouse (Snowflake, BigQuery, Redshift, or DuckDB in this project) stores tables in nested containers, like folders on a computer:</p>
+  <div class="flow" role="img" aria-label="database contains schemas, schema contains tables, table contains columns">
+    <div class="node raw"><b>Database</b><small>The top level. Like a drive.</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>Schema</b><small>A folder inside the database.</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>Table</b><small>A file inside the folder.</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>Columns</b><small>What is inside the table.</small></div>
+  </div>
+  <p>So a full table name has three parts, <code>database.schema.table</code>. This is what our warehouse holds once the pipeline is built:</p>
+<pre>telecom                          <span class="cm">← database</span>
+├── raw                          <span class="cm">← schema: raw data, loaded by another tool</span>
+│   ├── cell_sites               <span class="cm">← table</span>
+│   ├── customers
+│   └── call_events
+├── main_staging                 <span class="cm">← schema: dbt puts cleaning models here</span>
+│   └── stg_telecom__cell_sites
+└── main_marts                   <span class="cm">← schema: dbt puts dimensions and facts here</span>
+    └── dim_cell_site</pre>
+  <p>In Snowflake the same idea might look like database <code>RAW</code>, schema <code>SALESFORCE</code>, table <code>ACCOUNTS</code>. There are no fixed "types" of schema; the names are whatever your company created.</p>
+  <p><b>Watch out: "schema" has two meanings.</b> Sometimes people use it for a table's column structure (<code>site_id varchar, latitude double</code>). In dbt configuration, <code>schema</code> always means <b>the folder</b>. The column structure is stored in the warehouse with the table itself; you never type it into dbt.</p>
+  <div class="takeaway"><span>Takeaway</span>Database → schema (folder) → table → columns. A full name is database.schema.table.</div>
+</section>
+
+<!-- STEP 3 -->
 <section class="step" id="why-dbt">
   <div class="step-head">
-    <div class="step-num">Step 1</div>
+    <div class="step-num">Step 3</div>
     <h2>Why dbt exists</h2>
   </div>
-  <p>Picture building that chain with plain SQL scripts, compared with building it in dbt:</p>
+  <p>Picture building the chain from Step 1 with plain SQL scripts, compared with building it in dbt:</p>
   <div class="compare">
     <div class="col">
       <h3>Plain SQL <span class="tag bad">without dbt</span></h3>
@@ -259,7 +308,7 @@ from clean_cell_sites;</pre>
 <pre><span class="cm">-- clean_cell_sites.sql</span>
 select site_id,
        trim(site_name) as site_name
-from raw.cell_sites
+from <span class="dbtpart">{{ source('telecom', 'cell_sites') }}</span>
 
 <span class="cm">-- dim_cell_site.sql</span>
 select site_id, site_name
@@ -267,265 +316,105 @@ from <span class="dbtpart">{{ ref('clean_cell_sites') }}</span></pre>
       <ul>
         <li>You write only the <code>SELECT</code>, one per file.</li>
         <li>dbt adds the <code>create table ... as</code> for you.</li>
-        <li>dbt sees the <code>ref()</code> and builds the clean table first.</li>
-        <li>You run everything with one command: <code>dbt run</code>.</li>
+        <li>dbt reads <code>ref()</code> and builds the clean table first.</li>
+        <li>One command runs everything: <code>dbt run</code>.</li>
       </ul>
     </div>
   </div>
-  <p>Here is what happens when you type <code>dbt run</code>:</p>
-  <div class="flow" role="img" aria-label="you write a select, dbt wraps it in create table, the table appears in the warehouse">
-    <div class="node you"><b>You write</b><small>A plain <code>SELECT</code> in a .sql file</small></div>
-    <div class="arrow">→</div>
-    <div class="node dbt"><b>dbt wraps it</b><small>Adds <code>create table … as</code> and works out the order</small></div>
-    <div class="arrow">→</div>
-    <div class="node raw"><b>Warehouse</b><small>The table now exists and people can query it</small></div>
-  </div>
+  <p>The <code>{{ ... }}</code> parts are <b>Jinja</b>, a templating language. Before anything reaches the warehouse, dbt replaces each one with a real table name. Part 2 shows exactly how.</p>
   <div class="takeaway"><span>Takeaway</span>You write SELECT statements. dbt turns them into tables and runs them in the right order.</div>
 </section>
 
-<!-- STEP 2 -->
-<section class="step" id="source-ref">
-  <div class="step-head">
-    <div class="step-num">Step 2</div>
-    <h2>source() first, then ref()</h2>
-  </div>
-  <div class="compare">
-    <div class="col">
-      <h3><code>source()</code></h3>
-      <p>Points at a <b>raw table that dbt did not make</b>. You use it once, in the first cleaning step.</p>
-    </div>
-    <div class="col">
-      <h3><code>ref()</code></h3>
-      <p>Points at a <b>table that dbt made</b> from one of your files. You use it for every step after that.</p>
-    </div>
-  </div>
-  <div class="chain" role="img" aria-label="raw.cell_sites, via source, to stg_telecom__cell_sites, via ref, to dim_cell_site">
-    <div class="node raw"><b>raw.cell_sites</b><small>Loaded by another tool</small></div>
-    <div class="link">uses <code>source('telecom', 'cell_sites')</code></div>
-    <div class="node you"><b>stg_telecom__cell_sites.sql</b><small>Your cleaning step</small></div>
-    <div class="link">uses <code>ref('stg_telecom__cell_sites')</code></div>
-    <div class="node you"><b>dim_cell_site.sql</b><small>Your dimension</small></div>
-  </div>
-<pre><span class="cm">-- stg_telecom__cell_sites.sql   (first step → source)</span>
-select site_id, trim(site_name) as site_name, upper(technology) as technology
-from <span class="dbtpart">{{ source('telecom', 'cell_sites') }}</span>
-
-<span class="cm">-- dim_cell_site.sql             (later step → ref)</span>
-select site_id, site_name, technology
-from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span></pre>
-  <p>In <code>source('telecom', 'cell_sites')</code>, <code>telecom</code> is a group name we chose for our raw tables and <code>cell_sites</code> is the table's name. We register them once in a small YAML file. We'll open that file together later.</p>
-  <div class="takeaway"><span>Takeaway</span>Raw data: source(). Anything dbt built: ref().</div>
-</section>
-
-<!-- STEP 3 -->
-<section class="step" id="file-name">
-  <div class="step-head">
-    <div class="step-num">Step 3</div>
-    <h2>The file name becomes the table name</h2>
-  </div>
-  <div class="qa">
-    <div class="q">Because we saved the file as stg_telecom__cell_sites.sql, it became the name of the view/table, and we can reference it using the same name?</div>
-    <div>Yes, exactly. There is no separate place where you name the table. The file name <b>is</b> the name.</div>
-  </div>
-  <div class="map-wrap">
-    <table class="map">
-      <tr><td>You save the file</td><td><code><span class="hl">stg_telecom__cell_sites</span>.sql</code></td></tr>
-      <tr><td>dbt calls the model</td><td><code><span class="hl">stg_telecom__cell_sites</span></code> (the file name without <code>.sql</code>)</td></tr>
-      <tr><td>Created in the database</td><td><code><span class="hl-dbt">main_staging.</span><span class="hl">stg_telecom__cell_sites</span></code></td></tr>
-      <tr><td>Other files use it as</td><td><code>{{ ref('<span class="hl">stg_telecom__cell_sites</span>') }}</code></td></tr>
-    </table>
-  </div>
-  <p>You only ever type the name. dbt adds the <span class="hl-dbt">main_staging.</span> part in front for you. Where that comes from is a topic for a later step.</p>
-  <p>One rule follows from this: <b>every file name must be unique in the project</b>, because each name can belong to only one table.</p>
-  <div class="takeaway"><span>Takeaway</span>File name = model name = table name. ref() uses that same name.</div>
-</section>
+<!-- ================= PART 2 ================= -->
+<div class="part">
+  <div class="eyebrow">Part 2</div>
+  <h2>Build the cell sites pipeline</h2>
+  <p>In the same order you would in a real project: connect, point to the raw table, clean it, run it, then build a dimension on top.</p>
+</div>
 
 <!-- STEP 4 -->
-<section class="step" id="run-it">
+<section class="step" id="connect">
   <div class="step-head">
     <div class="step-num">Step 4</div>
-    <h2>Run it and look at the result</h2>
+    <h2>Connect dbt to the warehouse</h2>
   </div>
-  <p class="lede">In order, this step built only the cleaning step, <code>stg_telecom__cell_sites</code>. The command below also built the dimension, which skipped ahead; Step 6 builds the dimension properly.</p>
-  <p>dbt has no window of its own. You type commands in a <b>terminal</b> (Terminal on Mac, PowerShell on Windows, or the terminal panel in VS Code), from inside the <code>dbt_lab</code> folder.</p>
-
-  <h3>One-time setup</h3>
-<pre><span class="cm"># 1. get the project and go into the dbt folder</span>
-cd telecom_aws
-git fetch origin claude/youthful-thompson-wi7w7p
-git checkout claude/youthful-thompson-wi7w7p
-cd dbt_lab
-
-<span class="cm"># 2. install dbt in its own Python environment</span>
-python3 -m venv .venv
-source .venv/bin/activate        <span class="cm"># Windows: .venv\Scripts\activate</span>
-pip install -r requirements.txt
-
-<span class="cm"># 3. load the raw data (plays the loading tool)</span>
-python scripts/load_raw.py --day 1</pre>
-
-  <h3>The dbt command</h3>
-<pre>dbt run --select stg_telecom__cell_sites dim_cell_site</pre>
-  <p><code>dbt run</code> builds models. <code>--select</code> names which ones, using the <b>file names without .sql</b>.</p>
-
-  <h3>What dbt printed</h3>
-<pre>1 of 2 OK created sql view model  main_staging.stg_telecom__cell_sites
-2 of 2 OK created sql table model main_marts.dim_cell_site
-Completed successfully</pre>
-  <div class="flow" role="img" aria-label="dbt built the staging view first, then the dimension table">
-    <div class="node raw"><b>raw.cell_sites</b><small>Already there</small></div>
-    <div class="arrow">→</div>
-    <div class="node dbt"><b>1 of 2</b><small>View <code>main_staging.stg_telecom__cell_sites</code></small></div>
-    <div class="arrow">→</div>
-    <div class="node dbt"><b>2 of 2</b><small>Table <code>main_marts.dim_cell_site</code></small></div>
+  <p>Before dbt can build anything, it needs to know which warehouse to connect to and which <b>database</b> to use. That lives in a file called <code>profiles.yml</code>. A second file, <code>dbt_project.yml</code>, says which connection the project uses.</p>
+  <div class="compare">
+    <div class="col">
+      <h3>dbt_project.yml</h3>
+<pre>name: telecom_dbt
+profile: <span class="hl">telecom_dbt</span>   <span class="cm"># use this connection</span></pre>
+      <p>Lives in the project, in git. Describes the project.</p>
+    </div>
+    <div class="col">
+      <h3>profiles.yml</h3>
+<pre><span class="hl">telecom_dbt</span>:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: <span class="hl-dbt">telecom</span>.duckdb   <span class="cm"># the database</span>
+      schema: main</pre>
+      <p>Holds the connection details. In a company it lives on your laptop (<code>~/.dbt/</code>), not in git, because it contains passwords.</p>
+    </div>
   </div>
-  <p>dbt built them in the right order on its own. It read the <code>ref()</code> inside <code>dim_cell_site.sql</code> and knew the cleaning step had to come first.</p>
-
-  <h3>The SQL dbt actually ran</h3>
-  <p>Your file had only the <code>select</code>. Everything in amber below was added by dbt. Find it in <code>target/run/</code>:</p>
-<pre><span class="dbtpart">create view "telecom"."main_staging"."stg_telecom__cell_sites__dbt_tmp" as (</span>
-    select
-    site_id,
-    trim(site_name)       as site_name,
-    trim(city)            as city,
-    upper(technology)     as technology,
-    latitude,
-    longitude
-from <span class="dbtpart">"telecom"."raw"."cell_sites"</span>      <span class="cm">-- was {{ source('telecom', 'cell_sites') }}</span>
-<span class="dbtpart">);</span></pre>
-  <p>The <code>__dbt_tmp</code> ending is dbt building under a temporary name and renaming it at the end, so the real table is never half-built.</p>
-
-  <h3>Look at the result</h3>
-<pre>python scripts/query.py "select * from main_marts.dim_cell_site"</pre>
-  <p>You get the 4 cell sites, cleaned. The extra <code>cell_site_sk</code> column is an ID column; we'll cover it later.</p>
-  <div class="takeaway"><span>Takeaway</span>dbt run turned two SELECT files into one view and one table, in the right order, and target/run/ shows the exact SQL it ran.</div>
+  <p>In this project the warehouse is a DuckDB file, and <b>DuckDB names the database after the file</b>: <code>telecom.duckdb</code> gives a database called <code>telecom</code>. That is where the word <code>telecom</code> at the front of every table name comes from.</p>
+  <p>On Snowflake you write the database name directly:</p>
+<pre>telecom_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: ab12345
+      user: devanshi
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"   <span class="cm"># never typed into the file</span>
+      warehouse: TRANSFORMING
+      database: <span class="hl-dbt">ANALYTICS</span>           <span class="cm"># the database dbt connects to and builds in</span>
+      schema: dbt_devanshi</pre>
+  <div class="takeaway"><span>Takeaway</span>profiles.yml is where the database is defined. Every table name dbt writes starts with it unless you say otherwise.</div>
 </section>
 
 <!-- STEP 5 -->
-<section class="step" id="view-table">
+<section class="step" id="sources">
   <div class="step-head">
     <div class="step-num">Step 5</div>
-    <h2>View or table? The folder decides</h2>
+    <h2>Point dbt to the raw table</h2>
   </div>
-  <p>The answer is in <code>dbt_project.yml</code>. Every file inside a folder gets that folder's setting:</p>
-<pre><span class="kw">models</span>:
-  telecom_dbt:
-    staging:                   <span class="cm"># every file in models/staging/ ...</span>
-      <span class="dbtpart">+materialized: view</span>      <span class="cm"># ... becomes a VIEW</span>
-    marts:                     <span class="cm"># every file in models/marts/ ...</span>
-      <span class="dbtpart">+materialized: table</span>     <span class="cm"># ... becomes a TABLE</span></pre>
-  <div class="map-wrap">
-    <table class="map">
-      <tr><td>models/<span class="hl">staging</span>/telecom/stg_telecom__cell_sites.sql</td><td>→ <b>view</b></td></tr>
-      <tr><td>models/<span class="hl">marts</span>/core/dim_cell_site.sql</td><td>→ <b>table</b></td></tr>
-    </table>
-  </div>
-  <p>dbt calls this setting the <b>materialization</b>: the one word that decides whether dbt writes <code>create view</code> or <code>create table</code> around your SELECT.</p>
-  <div class="compare">
-    <div class="col">
-      <h3>View</h3>
-      <p>A <b>saved query</b>. No data is stored. Each time someone reads it, the SELECT runs again on the raw table.</p>
-<pre><span class="dbtpart">create view</span> main_staging.stg_telecom__cell_sites
-<span class="dbtpart">as</span> ( select ... )</pre>
-      <ul>
-        <li>Good for the cleaning step: light work that only other dbt models read.</li>
-        <li>No second copy of the data.</li>
-      </ul>
-    </div>
-    <div class="col">
-      <h3>Table</h3>
-      <p>The SELECT runs <b>once</b> during <code>dbt run</code>, and the results are <b>stored</b>. Reading it later is fast.</p>
-<pre><span class="dbtpart">create table</span> main_marts.dim_cell_site
-<span class="dbtpart">as</span> ( select ... )</pre>
-      <ul>
-        <li>Good for dimensions and facts: dashboards query them all day.</li>
-        <li>Fast to read, because the work is already done.</li>
-      </ul>
-    </div>
-  </div>
-  <div class="takeaway"><span>Takeaway</span>The folder sets the default: staging = view, marts = table. The setting is called the materialization and lives in dbt_project.yml.</div>
-</section>
-
-<!-- STEP 6 -->
-<section class="step" id="build-dim">
-  <div class="step-head">
-    <div class="step-num">Step 6</div>
-    <h2>Build the dimension</h2>
-  </div>
-  <p>Before this step, the warehouse had the raw table and your cleaning view. Now we add the dimension on top.</p>
-
-  <h3>The file: models/marts/core/dim_cell_site.sql</h3>
-<pre>select
-    {{ surrogate_key(['site_id']) }} as cell_site_sk,   <span class="cm">-- a unique ID per site</span>
-    site_id,
-    site_name,
-    city,
-    technology,
-    latitude,
-    longitude
-from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span>              <span class="cm">-- reads YOUR cleaning step</span></pre>
-  <p>Still one SELECT. It reads from the cleaning step with <code>ref()</code>, never from the raw table. The first line uses a small helper (<code>surrogate_key</code>) to give each site its own ID. We'll look inside helpers later.</p>
-
-  <h3>Run only this model</h3>
-<pre>dbt run --select dim_cell_site
-
-1 of 1 OK created sql table model main_marts.dim_cell_site
-Done. PASS=1</pre>
-  <p><code>1 of 1</code>: dbt built just this one model and read from the cleaning view that already existed. It became a <b>table</b> because the file is in <code>marts/</code>.</p>
-
-  <h3>The warehouse now</h3>
-  <div class="chain" role="img" aria-label="raw.cell_sites table, then stg_telecom__cell_sites view, then dim_cell_site table">
-    <div class="node raw"><b>raw.cell_sites</b><small>Table · raw data, loaded by another tool</small></div>
-    <div class="link">source()</div>
-    <div class="node you"><b>main_staging.stg_telecom__cell_sites</b><small>View · your cleaning step (Step 4)</small></div>
-    <div class="link">ref()</div>
-    <div class="node you"><b>main_marts.dim_cell_site</b><small>Table · your dimension (new)</small></div>
-  </div>
-
-  <h3>Look at it</h3>
-<pre>python scripts/query.py "select site_id, site_name, city, technology from main_marts.dim_cell_site"
-
-S01  Bandra West Macro   Mumbai  5G
-S02  Andheri East Small  Mumbai  4G
-S03  Hinjewadi Phase 1   Pune    4G
-S04  Connaught Place     Delhi   5G</pre>
-
-  <h3>What dbt turned ref() into</h3>
-<pre>from <span class="dbtpart">"telecom"."main_staging"."stg_telecom__cell_sites"</span>    <span class="cm">-- was {{ ref('stg_telecom__cell_sites') }}</span></pre>
-  <div class="takeaway"><span>Takeaway</span>The dimension is one SELECT that reads the cleaning step through ref(). Because it sits in marts/, dbt stores it as a table.</div>
-</section>
-
-<!-- STEP 7 -->
-<section class="step" id="sources-yaml">
-  <div class="step-head">
-    <div class="step-num">Step 7</div>
-    <h2>Where source('telecom', 'cell_sites') comes from</h2>
-  </div>
-  <p>The two names come from a YAML file that sits next to your cleaning model:</p>
+  <p>The raw table <code>raw.cell_sites</code> was loaded by another tool, so dbt does not know about it yet. You register it once in a small YAML file, called a <b>sources file</b>, next to your cleaning model:</p>
 <pre>models/staging/telecom/
-├── <span class="kw">_telecom__sources.yml</span>        <span class="cm">← this file</span>
-└── stg_telecom__cell_sites.sql</pre>
-  <p>These are the only lines that matter for <code>source()</code>. The real file has a few extra lines (descriptions and checks) that we cover later.</p>
+├── <span class="kw">_telecom__sources.yml</span>        <span class="cm">← the sources file</span>
+└── stg_telecom__cell_sites.sql  <span class="cm">← the cleaning model (Step 6)</span></pre>
+  <p>These are the lines that matter. The real file has a few more (descriptions and checks), covered later.</p>
 <pre>version: 2
 
 sources:
-  - name: <span class="hl">telecom</span>          <span class="cm"># 1st name in source('telecom', ...)</span>
-    schema: <span class="hl-dbt">raw</span>            <span class="cm"># where the raw tables really are</span>
+  - name: <span class="hl">telecom</span>          <span class="cm"># source name: a label YOU choose for this group of raw tables</span>
+    schema: <span class="hl-dbt">raw</span>            <span class="cm"># the schema (folder) the tables are in</span>
     tables:
-      - name: <span class="hl">cell_sites</span>   <span class="cm"># 2nd name in source(..., 'cell_sites')</span></pre>
-  <p>In plain words: there is a group of raw tables I call <code>telecom</code>. They live in the schema <code>raw</code>. One of them is <code>cell_sites</code>.</p>
+      - name: <span class="hl">cell_sites</span>   <span class="cm"># the table's real name</span></pre>
+  <p>In a model you then write <code>{{ source('telecom', 'cell_sites') }}</code>. This is a call to the <b>source() function</b>. Its two arguments are the <b>source name</b> and the <b>table name</b> from this file.</p>
 
-  <h3>How dbt turns it into a real table name</h3>
+  <h3>Where each part of the real table name comes from</h3>
   <div class="map-wrap">
     <table class="map">
-      <tr><td>You write</td><td><code>source('<span class="hl">telecom</span>', '<span class="hl">cell_sites</span>')</code></td></tr>
-      <tr><td>dbt looks up</td><td><code>- name: telecom</code> → finds <code>schema: <span class="hl-dbt">raw</span></code>, then <code>- name: cell_sites</code> under tables</td></tr>
-      <tr><td>dbt writes</td><td><code>"telecom"."<span class="hl-dbt">raw</span>"."<span class="hl">cell_sites</span>"</code></td></tr>
+      <tr><td>You write</td><td><code>{{ source('telecom', 'cell_sites') }}</code></td></tr>
+      <tr><td>dbt writes</td><td><code>"telecom"."raw"."cell_sites"</code></td></tr>
+      <tr><td>database <code>telecom</code></td><td>From <b>profiles.yml</b> (Step 4). Not from the source name.</td></tr>
+      <tr><td>schema <code>raw</code></td><td>From <code>schema: raw</code> in the sources file.</td></tr>
+      <tr><td>table <code>cell_sites</code></td><td>From <code>- name: cell_sites</code> in the sources file.</td></tr>
     </table>
   </div>
-  <p>The first <code>"telecom"</code> in the result is the <b>database</b>. DuckDB names it after the file <code>telecom.duckdb</code>, so matching the group name is a coincidence. In a company it might be <code>RAW_DB.raw.cell_sites</code>.</p>
+  <p>The source name <code>telecom</code> and the database <code>telecom</code> are two different things that happen to use the same word here. The source name is only a label you use inside dbt; it never appears in the SQL dbt writes.</p>
+  <p>If the raw data lives in a <b>different database</b> from the one in profiles.yml (common in Snowflake), add one line:</p>
+<pre>sources:
+  - name: telecom
+    database: <span class="hl-dbt">RAW</span>            <span class="cm"># overrides the database from profiles.yml</span>
+    schema: raw
+    tables:
+      - name: cell_sites</pre>
+  <p>Now the same <code>{{ source('telecom', 'cell_sites') }}</code> becomes <code>RAW.raw.cell_sites</code>. Your SQL file does not change.</p>
 
-  <h3>See it work, and see it break</h3>
+  <h3>dbt checks the names for you</h3>
   <div class="compare">
     <div class="col">
       <h3>Correct name <span class="tag good">works</span></h3>
@@ -543,45 +432,213 @@ depends on a source named
 'telecom.cell_site' which was not found</pre>
     </div>
   </div>
-  <p>dbt catches the typo before anything touches the database, because the name is not in the YAML file.</p>
+  <p>The typo is caught before anything touches the warehouse. And if the loading team moves the raw tables to another schema, you change one line here instead of every SQL file.</p>
+  <div class="takeaway"><span>Takeaway</span>The sources file registers raw tables. source('telecom', 'cell_sites') takes the schema and table from it, and the database from profiles.yml (or from a database: line).</div>
+</section>
 
-  <h3>Why bother with this file?</h3>
-  <ul>
-    <li><b>One place to change.</b> If raw tables move from schema <code>raw</code> to <code>raw_v2</code>, you change one line, and every model that uses <code>source()</code> follows.</li>
-    <li><b>Typos are caught early</b>, as above.</li>
-    <li><b>dbt knows where your data comes from.</b> The raw table shows as the start of the chain when dbt draws your pipeline.</li>
-  </ul>
-  <div class="qa">
-    <div class="q">Is the telecom in source('telecom', 'cell_sites') the same telecom as "- name: telecom" in the YAML?</div>
-    <div><b>Yes.</b> That is how dbt finds the entry. The word <code>telecom</code> also shows up in the output <code>"telecom"."raw"."cell_sites"</code>, but that one is the <b>database</b> name, taken from the file <code>telecom.duckdb</code>. Same word, different thing. With a file called <code>warehouse.duckdb</code> you would get <code>"warehouse"."raw"."cell_sites"</code>, and your <code>source('telecom', ...)</code> would not change.</div>
+<!-- STEP 6 -->
+<section class="step" id="staging">
+  <div class="step-head">
+    <div class="step-num">Step 6</div>
+    <h2>Write the cleaning model</h2>
   </div>
+  <p>In dbt, each SQL file is called a <b>model</b>. The first, cleaning layer is called <b>staging</b>, so this is a <b>staging model</b>. It is one SELECT, nothing else:</p>
+<pre><span class="cm">-- models/staging/telecom/stg_telecom__cell_sites.sql</span>
+select
+    site_id,
+    trim(site_name)       as site_name,
+    trim(city)            as city,
+    upper(technology)     as technology,
+    latitude,
+    longitude
+from <span class="dbtpart">{{ source('telecom', 'cell_sites') }}</span></pre>
+  <p>Your SELECT chooses the columns, as in normal SQL. <code>source()</code> only says <b>where</b> the table is.</p>
 
-  <div class="qa">
-    <div class="q">What does schema mean here? Is schema: raw the column list, like customer_id int, name string?</div>
-    <div>The word schema has <b>two meanings</b>. In <code>schema: raw</code>, dbt means the second one.</div>
-    <div class="map-wrap">
-      <table class="map">
-        <tr><td>1. Column structure</td><td>The list of columns and their types, e.g. <code>site_id varchar, latitude double</code></td></tr>
-        <tr><td>2. A folder in the database</td><td>A named container that holds tables, e.g. <code>raw</code>, <code>main_staging</code>, <code>main_marts</code> <b>← this one</b></td></tr>
-      </table>
+  <h3>The file name becomes the table name</h3>
+  <p>There is no separate place where you name the table:</p>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>You save the file</td><td><code><span class="hl">stg_telecom__cell_sites</span>.sql</code></td></tr>
+      <tr><td>dbt calls the model</td><td><code><span class="hl">stg_telecom__cell_sites</span></code> (the file name without <code>.sql</code>)</td></tr>
+      <tr><td>Created in the warehouse</td><td><code><span class="hl-dbt">main_staging.</span><span class="hl">stg_telecom__cell_sites</span></code></td></tr>
+      <tr><td>Other models use it as</td><td><code>{{ ref('<span class="hl">stg_telecom__cell_sites</span>') }}</code></td></tr>
+    </table>
+  </div>
+  <p>dbt adds the schema (<span class="hl-dbt">main_staging.</span>) in front for you; where it comes from is a later topic. Because each name belongs to exactly one table, <b>every file name must be unique in the project</b>. The naming style <code>stg_&lt;source&gt;__&lt;table&gt;</code> (with a double underscore) is a common convention, not a rule.</p>
+  <div class="takeaway"><span>Takeaway</span>A model is one SELECT in one file. File name = model name = table name.</div>
+</section>
+
+<!-- STEP 7 -->
+<section class="step" id="run">
+  <div class="step-head">
+    <div class="step-num">Step 7</div>
+    <h2>Run it</h2>
+  </div>
+  <p>dbt has no window of its own. You type commands in a <b>terminal</b> (Terminal on Mac, PowerShell on Windows, or the terminal panel in VS Code), from inside the <code>dbt_lab</code> folder, the one that contains <code>dbt_project.yml</code>.</p>
+
+  <h3>One-time setup</h3>
+<pre><span class="cm"># 1. get the project and go into the dbt folder</span>
+cd telecom_aws
+git fetch origin claude/youthful-thompson-wi7w7p
+git checkout claude/youthful-thompson-wi7w7p
+cd dbt_lab
+
+<span class="cm"># 2. install dbt in its own Python environment</span>
+python3 -m venv .venv
+source .venv/bin/activate        <span class="cm"># Windows: .venv\Scripts\activate</span>
+pip install -r requirements.txt
+
+<span class="cm"># 3. load the raw data (this script plays the loading tool)</span>
+python scripts/load_raw.py --day 1</pre>
+
+  <h3>Build the cleaning model</h3>
+<pre>dbt run --select stg_telecom__cell_sites
+
+1 of 1 START sql view model main_staging.stg_telecom__cell_sites ... [RUN]
+1 of 1 OK created sql view model main_staging.stg_telecom__cell_sites [OK]
+Done. PASS=1</pre>
+  <p><code>dbt run</code> builds models. <code>--select</code> names which ones, using the <b>model name</b> (file name without <code>.sql</code>). Without <code>--select</code>, dbt builds every model in the project.</p>
+
+  <h3>The SQL dbt actually ran</h3>
+  <p>Your file had only the SELECT. Everything in amber was added by dbt. You can find it in the <code>target/run/</code> folder:</p>
+<pre><span class="dbtpart">create view "telecom"."main_staging"."stg_telecom__cell_sites__dbt_tmp" as (</span>
+    select
+    site_id,
+    trim(site_name)       as site_name,
+    trim(city)            as city,
+    upper(technology)     as technology,
+    latitude,
+    longitude
+from <span class="dbtpart">"telecom"."raw"."cell_sites"</span>      <span class="cm">-- was {{ source('telecom', 'cell_sites') }}</span>
+<span class="dbtpart">);</span></pre>
+  <p>dbt builds under a temporary name ending in <code>__dbt_tmp</code>, then renames it at the end, so the real one is never half-built. There is also a <code>target/compiled/</code> folder, which holds just your SELECT with the Jinja replaced; that is handy for pasting into a SQL editor.</p>
+
+  <h3>The warehouse now</h3>
+  <div class="chain" role="img" aria-label="raw.cell_sites table, then stg_telecom__cell_sites view">
+    <div class="node raw"><b>raw.cell_sites</b><small>Table · raw data, loaded by another tool</small></div>
+    <div class="link">source()</div>
+    <div class="node you"><b>main_staging.stg_telecom__cell_sites</b><small>View · your cleaning model (new)</small></div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>dbt run --select builds one model. dbt wraps your SELECT, swaps source() for the real name, and target/run/ shows exactly what it ran.</div>
+</section>
+
+<!-- STEP 8 -->
+<section class="step" id="view-table">
+  <div class="step-head">
+    <div class="step-num">Step 8</div>
+    <h2>View or table? The folder decides</h2>
+  </div>
+  <p>The log said <b>view</b>. That choice is called the <b>materialization</b>: the word that decides whether dbt writes <code>create view</code> or <code>create table</code> around your SELECT. Its default is set per folder in <code>dbt_project.yml</code>:</p>
+<pre><span class="kw">models</span>:
+  telecom_dbt:
+    staging:                   <span class="cm"># every model in models/staging/ ...</span>
+      <span class="dbtpart">+materialized: view</span>      <span class="cm"># ... becomes a VIEW</span>
+    marts:                     <span class="cm"># every model in models/marts/ ...</span>
+      <span class="dbtpart">+materialized: table</span>     <span class="cm"># ... becomes a TABLE</span></pre>
+  <div class="compare">
+    <div class="col">
+      <h3>View</h3>
+      <p>A <b>saved query</b>. No data is stored. Each time someone reads it, the SELECT runs again on the raw table.</p>
+      <ul>
+        <li>Good for staging: light work that only other models read.</li>
+        <li>No second copy of the data.</li>
+      </ul>
     </div>
-    <div>A warehouse is organised like folders on a computer. <b>Database → schema → table → columns</b> is like <b>drive → folder → file → contents</b>. This is what our warehouse actually holds:</div>
-<pre>telecom                          <span class="cm">← database</span>
-├── <span class="hl-dbt">raw</span>                          <span class="cm">← schema (folder): raw data from another tool</span>
-│   ├── cell_sites               <span class="cm">← table</span>
-│   ├── customers
-│   └── call_events
-├── main_staging                 <span class="cm">← schema: dbt put your cleaning view here</span>
-│   └── stg_telecom__cell_sites
-└── main_marts                   <span class="cm">← schema: dbt put your dimension here</span>
-    └── dim_cell_site</pre>
-    <div>There are no "types" of schema. The name is whatever your company created (<code>raw</code>, <code>landing</code>, <code>bronze</code>, <code>salesforce</code>...). You ask the team that loads the data where they load it, and write that in the YAML. In Snowflake it might be database <code>RAW_DB</code>, schema <code>SALESFORCE</code>, table <code>ACCOUNTS</code>.</div>
-    <div><b>The columns already live in the warehouse</b>, with the table. You never give dbt a column list. <code>source()</code> only says <b>where</b> the table is; your SELECT picks the columns:</div>
-<pre>select site_id, trim(site_name) as site_name, ...   <span class="cm">-- you pick the columns here</span>
-from {{ source('telecom', 'cell_sites') }}          <span class="cm">-- source() only says WHERE</span></pre>
+    <div class="col">
+      <h3>Table</h3>
+      <p>The SELECT runs <b>once</b> during <code>dbt run</code> and the results are <b>stored</b>. Reading it later is fast.</p>
+      <ul>
+        <li>Good for dimensions and facts: dashboards query them all day.</li>
+        <li>Fast to read, because the work is already done.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>The materialization decides view or table. The folder sets the default: staging = view, marts = table.</div>
+</section>
+
+<!-- STEP 9 -->
+<section class="step" id="dim">
+  <div class="step-head">
+    <div class="step-num">Step 9</div>
+    <h2>Build the dimension</h2>
+  </div>
+  <p>A <b>dimension</b> is a table that describes things (here: cell sites) and that reports filter and group by. It reads from your staging model, never from the raw table. It sits in <code>models/marts/</code>, so it becomes a table.</p>
+<pre><span class="cm">-- models/marts/core/dim_cell_site.sql</span>
+select
+    {{ surrogate_key(['site_id']) }} as cell_site_sk,   <span class="cm">-- a unique ID per site</span>
+    site_id,
+    site_name,
+    city,
+    technology,
+    latitude,
+    longitude
+from <span class="dbtpart">{{ ref('stg_telecom__cell_sites') }}</span>              <span class="cm">-- reads YOUR staging model</span></pre>
+  <p>The <b>ref() function</b> points to another model by its name. dbt replaces it with the real name and learns that this model must run <b>after</b> the staging model. The first line uses a small helper (<code>surrogate_key</code>) to give each site its own ID; helpers come later.</p>
+  <div class="compare">
+    <div class="col">
+      <h3><code>source()</code></h3>
+      <p>For <b>raw tables dbt did not build</b>. Registered in a sources file. Used in staging models.</p>
+    </div>
+    <div class="col">
+      <h3><code>ref()</code></h3>
+      <p>For <b>models dbt built</b>. Needs no registration; the file is enough. Used everywhere after staging.</p>
+    </div>
   </div>
 
-  <div class="takeaway"><span>Takeaway</span>source('telecom', 'cell_sites') looks up both names in the sources YAML. schema: raw names the folder where the raw table sits; the columns are already in the warehouse, and your SELECT chooses them.</div>
+  <h3>Run it</h3>
+<pre>dbt run --select dim_cell_site
+
+1 of 1 OK created sql table model main_marts.dim_cell_site
+Done. PASS=1</pre>
+  <p>dbt turned the ref() into the staging model's real name:</p>
+<pre>from <span class="dbtpart">"telecom"."main_staging"."stg_telecom__cell_sites"</span>    <span class="cm">-- was {{ ref('stg_telecom__cell_sites') }}</span></pre>
+
+  <h3>Look at the result</h3>
+<pre>python scripts/query.py "select site_id, site_name, city, technology from main_marts.dim_cell_site"
+
+S01  Bandra West Macro   Mumbai  5G
+S02  Andheri East Small  Mumbai  4G
+S03  Hinjewadi Phase 1   Pune    4G
+S04  Connaught Place     Delhi   5G</pre>
+
+  <h3>The finished cell sites pipeline</h3>
+  <div class="chain" role="img" aria-label="raw.cell_sites table, then stg_telecom__cell_sites view, then dim_cell_site table">
+    <div class="node raw"><b>raw.cell_sites</b><small>Table · raw data, loaded by another tool</small></div>
+    <div class="link"><code>source('telecom', 'cell_sites')</code></div>
+    <div class="node you"><b>main_staging.stg_telecom__cell_sites</b><small>View · staging model</small></div>
+    <div class="link"><code>ref('stg_telecom__cell_sites')</code></div>
+    <div class="node you"><b>main_marts.dim_cell_site</b><small>Table · dimension</small></div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>Raw data: source(). Anything dbt built: ref(). ref() also tells dbt the order to build things in.</div>
+</section>
+
+<!-- GLOSSARY -->
+<section class="step" id="words">
+  <div class="step-head">
+    <div class="step-num">Reference</div>
+    <h2>Words to know</h2>
+  </div>
+  <p>The official names for things, and what people often call them by mistake.</p>
+  <dl class="gloss">
+    <div><dt>Warehouse</dt><dd>The system that stores and queries the data: Snowflake, BigQuery, Redshift, DuckDB.</dd></div>
+    <div><dt>Database</dt><dd>The top level inside the warehouse. Set in profiles.yml.</dd></div>
+    <div><dt>Schema</dt><dd>A folder inside a database that holds tables, e.g. <code>raw</code>, <code>main_staging</code>.<span class="not">In dbt config it never means the column list.</span></dd></div>
+    <div><dt>dbt project</dt><dd>The folder with <code>dbt_project.yml</code> and all your models.</dd></div>
+    <div><dt>Model</dt><dd>One <code>.sql</code> file with one SELECT. dbt builds it into a view or table.<span class="not">Not "a dbt table" or "a script".</span></dd></div>
+    <div><dt>Staging model</dt><dd>The first, cleaning model for one raw table: trim, rename, cast.<span class="not">Not "the source table". In dbt, "source" means the raw table.</span></dd></div>
+    <div><dt>Source</dt><dd>A raw table that dbt did not build, registered in a sources file.</dd></div>
+    <div><dt>Sources file</dt><dd>The YAML file with a <code>sources:</code> block (here <code>_telecom__sources.yml</code>).</dd></div>
+    <div><dt>Source name</dt><dd>The label you choose for a group of raw tables (<code>- name: telecom</code>).<span class="not">Not the database name, even when it is the same word.</span></dd></div>
+    <div><dt>source() function</dt><dd><code>{{ source('telecom', 'cell_sites') }}</code>. Points to a raw table. Often called "a source reference".</dd></div>
+    <div><dt>ref() function</dt><dd><code>{{ ref('stg_telecom__cell_sites') }}</code>. Points to another model. Often called "a ref".</dd></div>
+    <div><dt>Jinja</dt><dd>The templating language inside <code>{{ }}</code>. dbt replaces it with real SQL before running.</dd></div>
+    <div><dt>Compile</dt><dd>dbt replacing the Jinja to produce plain SQL. Saved in <code>target/compiled/</code>.</dd></div>
+    <div><dt>Materialization</dt><dd>Whether a model becomes a view or a table (and later: incremental).</dd></div>
+    <div><dt>Dimension</dt><dd>A table describing things (sites, customers) that reports filter and group by.</dd></div>
+    <div><dt>profiles.yml</dt><dd>Connection details: warehouse type, database, schema, credentials.</dd></div>
+    <div><dt>dbt_project.yml</dt><dd>Project settings: name, which profile to use, folder defaults.</dd></div>
+    <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
+  </dl>
 </section>
 
 <!-- NEXT -->
