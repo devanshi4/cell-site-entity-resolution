@@ -551,7 +551,37 @@ depends on a source named
     <li><b>Typos are caught early</b>, as above.</li>
     <li><b>dbt knows where your data comes from.</b> The raw table shows as the start of the chain when dbt draws your pipeline.</li>
   </ul>
-  <div class="takeaway"><span>Takeaway</span>source('telecom', 'cell_sites') looks up both names in the sources YAML file, which says where the raw table really lives.</div>
+  <div class="qa">
+    <div class="q">Is the telecom in source('telecom', 'cell_sites') the same telecom as "- name: telecom" in the YAML?</div>
+    <div><b>Yes.</b> That is how dbt finds the entry. The word <code>telecom</code> also shows up in the output <code>"telecom"."raw"."cell_sites"</code>, but that one is the <b>database</b> name, taken from the file <code>telecom.duckdb</code>. Same word, different thing. With a file called <code>warehouse.duckdb</code> you would get <code>"warehouse"."raw"."cell_sites"</code>, and your <code>source('telecom', ...)</code> would not change.</div>
+  </div>
+
+  <div class="qa">
+    <div class="q">What does schema mean here? Is schema: raw the column list, like customer_id int, name string?</div>
+    <div>The word schema has <b>two meanings</b>. In <code>schema: raw</code>, dbt means the second one.</div>
+    <div class="map-wrap">
+      <table class="map">
+        <tr><td>1. Column structure</td><td>The list of columns and their types, e.g. <code>site_id varchar, latitude double</code></td></tr>
+        <tr><td>2. A folder in the database</td><td>A named container that holds tables, e.g. <code>raw</code>, <code>main_staging</code>, <code>main_marts</code> <b>← this one</b></td></tr>
+      </table>
+    </div>
+    <div>A warehouse is organised like folders on a computer. <b>Database → schema → table → columns</b> is like <b>drive → folder → file → contents</b>. This is what our warehouse actually holds:</div>
+<pre>telecom                          <span class="cm">← database</span>
+├── <span class="hl-dbt">raw</span>                          <span class="cm">← schema (folder): raw data from another tool</span>
+│   ├── cell_sites               <span class="cm">← table</span>
+│   ├── customers
+│   └── call_events
+├── main_staging                 <span class="cm">← schema: dbt put your cleaning view here</span>
+│   └── stg_telecom__cell_sites
+└── main_marts                   <span class="cm">← schema: dbt put your dimension here</span>
+    └── dim_cell_site</pre>
+    <div>There are no "types" of schema. The name is whatever your company created (<code>raw</code>, <code>landing</code>, <code>bronze</code>, <code>salesforce</code>...). You ask the team that loads the data where they load it, and write that in the YAML. In Snowflake it might be database <code>RAW_DB</code>, schema <code>SALESFORCE</code>, table <code>ACCOUNTS</code>.</div>
+    <div><b>The columns already live in the warehouse</b>, with the table. You never give dbt a column list. <code>source()</code> only says <b>where</b> the table is; your SELECT picks the columns:</div>
+<pre>select site_id, trim(site_name) as site_name, ...   <span class="cm">-- you pick the columns here</span>
+from {{ source('telecom', 'cell_sites') }}          <span class="cm">-- source() only says WHERE</span></pre>
+  </div>
+
+  <div class="takeaway"><span>Takeaway</span>source('telecom', 'cell_sites') looks up both names in the sources YAML. schema: raw names the folder where the raw table sits; the columns are already in the warehouse, and your SELECT chooses them.</div>
 </section>
 
 <!-- NEXT -->
