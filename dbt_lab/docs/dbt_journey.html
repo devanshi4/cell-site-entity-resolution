@@ -205,8 +205,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#tests">10 · Check the data (tests)</a>
     <a href="#calls">11 · Call records &amp; duplicates</a>
     <a href="#seed">12 · Plan lookup file (seed)</a>
+    <a href="#snapshot">13 · Customers &amp; history</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: customers</a>
+    <a href="#next" class="next">Next: first fact table</a>
   </nav>
 </header>
 
@@ -219,8 +220,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s done">Done</span></li>
     <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s done">Done</span></li>
     <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s done">Done</span></li>
-    <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s now">Next</span></li>
-    <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s later">Later</span></li>
+    <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s done">Done</span></li>
+    <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s now">Next</span></li>
     <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s later">Later</span></li>
   </ol>
 </section>
@@ -924,6 +925,93 @@ Done. PASS=6</pre>
   <div class="takeaway"><span>Takeaway</span>A seed is a small CSV kept in the project that dbt loads as a table. You read it with ref(), and changes go through git like code.</div>
 </section>
 
+<!-- STEP 13 -->
+<section class="step" id="snapshot">
+  <div class="step-head">
+    <div class="step-num">Step 13</div>
+    <h2>The customer dimension, and keeping history</h2>
+  </div>
+  <p><code>raw.customers</code> comes from the CRM. Every night the loading tool <b>overwrites</b> it with each customer's <b>current</b> state. Priya (C002) upgraded at 10:00 on 2 March:</p>
+  <div class="compare">
+    <div class="col"><h3>raw.customers, day 1</h3>
+<pre>C002  Priya Nair  BASIC
+      updated_at 2026-01-12 11:30</pre></div>
+    <div class="col"><h3>raw.customers, day 2</h3>
+<pre>C002  Priya Nair  PREMIUM
+      updated_at 2026-03-02 10:00</pre>
+      <p>The BASIC row is gone.</p></div>
+  </div>
+  <p>But her call at <b>08:00 on 2 March</b> happened before the upgrade and must be priced <b>BASIC</b>. So we need every version of a customer and when each version was true.</p>
+
+  <h3>One row per version (SCD Type 2)</h3>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>C002 · BASIC</td><td>valid_from 2026-01-12 11:30 → valid_to 2026-03-02 10:00</td></tr>
+      <tr><td>C002 · PREMIUM</td><td>valid_from 2026-03-02 10:00 → valid_to <b>9999-12-31</b> (still true: the current version)</td></tr>
+    </table>
+  </div>
+  <p>This pattern is called a <b>Slowly Changing Dimension, Type 2</b> (SCD2). Now "which plan did Priya have at 08:00 on 2 March?" has an answer: BASIC.</p>
+
+  <h3>dbt's tool: a snapshot</h3>
+  <p>A <b>snapshot</b> builds this history table for you. You describe it in <code>snapshots/snap_customers.yml</code>:</p>
+<pre>snapshots:
+  - name: snap_customers                        <span class="cm"># the history table's name</span>
+    relation: source('telecom', 'customers')    <span class="cm"># which raw table to watch</span>
+    config:
+      unique_key: customer_id                   <span class="cm"># what identifies one customer</span>
+      strategy: timestamp                       <span class="cm"># how to spot a change...</span>
+      updated_at: updated_at                    <span class="cm"># ...this column got newer = the row changed</span>
+      dbt_valid_to_current: "cast('9999-12-31 00:00:00' as timestamp)"</pre>
+  <p>In plain words: watch <code>raw.customers</code>; when a customer's <code>updated_at</code> is newer than last time, keep the old version and add the new one.</p>
+
+  <h3>What happens on each run</h3>
+<pre><span class="cm"># day 1</span>
+python scripts/load_raw.py --reset
+python scripts/load_raw.py --day 1
+dbt snapshot
+<span class="cm"># day 2</span>
+python scripts/load_raw.py --day 2
+dbt snapshot</pre>
+  <div class="flow" role="img" aria-label="day 1 copies every customer; day 2 closes the old version and inserts the new one">
+    <div class="node dbt"><b>Day 1 run</b><small>Copies every customer in as a current version (valid_to 9999-12-31)</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>Day 2 run</b><small>Priya's updated_at is newer: <b>closes</b> the BASIC row, <b>inserts</b> the PREMIUM row</small></div>
+  </div>
+  <p>The snapshot table after day 2:</p>
+<pre>customer_id  plan_code  city    dbt_valid_from      dbt_valid_to
+C002         BASIC      Pune    2026-01-12 11:30    2026-03-02 10:00   <span class="cm">← closed</span>
+C002         PREMIUM    Pune    2026-03-02 10:00    9999-12-31         <span class="cm">← current</span>
+C004         STANDARD   Delhi   2026-02-03 14:00    2026-03-02 12:00   <span class="cm">← Sara moved...</span>
+C004         STANDARD   Mumbai  2026-03-02 12:00    9999-12-31         <span class="cm">← ...to Mumbai</span>
+C006         STANDARD   Pune    2026-03-02 09:00    9999-12-31         <span class="cm">← new customer</span></pre>
+  <p>Customers who did not change keep their single row.</p>
+
+  <h3>Three rules</h3>
+  <ul>
+    <li><b>Run it every day, in order.</b> A snapshot only sees raw as it is at that moment. A skipped day's changes are lost.</li>
+    <li><b>Never delete the snapshot table.</b> It is the only copy of the history. A model can be rebuilt; a snapshot cannot.</li>
+    <li><b>strategy: timestamp trusts updated_at.</b> Ask the source team: does updated_at change whenever any field changes? If not, use <code>strategy: check</code>, which compares column values.</li>
+  </ul>
+
+  <h3>From snapshot to dimension</h3>
+  <div class="flow" role="img" aria-label="raw.customers, snapshot, staging, dim_customer">
+    <div class="node raw"><b>raw.customers</b><small>Current state only</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>snap_customers</b><small>Snapshot: every version</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>stg_telecom__customers_history</b><small>Staging: trim, lowercase email, rename to valid_from / valid_to</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>dim_customer</b><small>An ID per version, plus is_current</small></div>
+  </div>
+<pre><span class="cm">-- stg_telecom__customers_history.sql (simplified)</span>
+select customer_id, trim(full_name) as full_name, lower(trim(email)) as email,
+       city, upper(plan_code) as plan_code, status,
+       dbt_valid_from as valid_from, dbt_valid_to as valid_to
+from <span class="dbtpart">{{ ref('snap_customers') }}</span>       <span class="cm">-- ref() works on snapshots too</span></pre>
+<pre>dbt build --select snap_customers stg_telecom__customers_history dim_customer</pre>
+  <div class="takeaway"><span>Takeaway</span>Raw keeps only the current state. A snapshot keeps every version with valid_from and valid_to (SCD Type 2), so you can answer what was true at any moment.</div>
+</section>
+
 <!-- GLOSSARY -->
 <section class="step" id="words">
   <div class="step-head">
@@ -962,6 +1050,11 @@ Done. PASS=6</pre>
     <div><dt>dbt seed</dt><dd>Loads all seed CSVs into the warehouse (<code>dbt build</code> does it too).</dd></div>
     <div><dt>column_types</dt><dd>A seed config that sets each column's type, so dbt does not guess.</dd></div>
     <div><dt>accepted_values test</dt><dd>A built-in test: a column may only contain values from a list. Add <code>quote: false</code> for numbers.</dd></div>
+    <div><dt>SCD Type 2</dt><dd>Slowly Changing Dimension, Type 2: one row per version, with <code>valid_from</code> and <code>valid_to</code>.</dd></div>
+    <div><dt>Snapshot</dt><dd>A dbt object that builds an SCD2 history table from a raw table. Run with <code>dbt snapshot</code> (or <code>dbt build</code>).<span class="not">Never deleted: it is the only copy of the history.</span></dd></div>
+    <div><dt>Current version</dt><dd>The row whose <code>valid_to</code> is 9999-12-31: what is true today.</dd></div>
+    <div><dt>Snapshot strategy</dt><dd>How dbt spots a change: <code>timestamp</code> (updated_at got newer) or <code>check</code> (compare column values).</dd></div>
+    <div><dt>CRM</dt><dd>The system that stores customer accounts (Salesforce, for example).</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -970,8 +1063,8 @@ Done. PASS=6</pre>
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>The customer dimension</h3>
-    <p>Customers change: they upgrade plans and move cities, and the raw table only keeps their current state. We build the customer dimension and see how dbt can keep a history of those changes.</p>
+    <h3>Your first fact table</h3>
+    <p>We join the call records to the customer and plan dimensions, picking the customer version that was true at the time of each call, and price every call.</p>
   </div>
 </section>
 
