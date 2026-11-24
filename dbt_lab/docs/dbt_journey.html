@@ -202,8 +202,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#run">7 · Run it</a>
     <a href="#view-table">8 · View or table?</a>
     <a href="#dim">9 · Build the dimension</a>
+    <a href="#tests">10 · Check the data (tests)</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: tests</a>
+    <a href="#next" class="next">Next: call records</a>
   </nav>
 </header>
 
@@ -213,8 +214,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
   <ol>
     <li><span class="n">1–3</span><span>Ideas: the flow, how a warehouse is organised, why dbt exists</span><span class="s done">Done</span></li>
     <li><span class="n">4–9</span><span>Build cell sites: connect, point to raw, clean, run, view or table, dimension</span><span class="s done">Done</span></li>
-    <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s now">Next</span></li>
-    <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s later">Later</span></li>
+    <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s done">Done</span></li>
+    <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s now">Next</span></li>
     <li><span class="n">12</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
     <li><span class="n">13+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
   </ol>
@@ -612,6 +613,93 @@ S04  Connaught Place     Delhi   5G</pre>
   <div class="takeaway"><span>Takeaway</span>Raw data: source(). Anything dbt built: ref(). ref() also tells dbt the order to build things in.</div>
 </section>
 
+<!-- STEP 10 -->
+<section class="step" id="tests">
+  <div class="step-head">
+    <div class="step-num">Step 10</div>
+    <h2>Make dbt check the data (tests)</h2>
+  </div>
+  <p>A <b>test</b> is a check dbt runs on a model after it is built. Each test is a SELECT that <b>looks for bad rows</b>:</p>
+  <div class="compare">
+    <div class="col"><h3>0 rows found <span class="tag good">pass</span></h3><p>Nothing bad in the data.</p></div>
+    <div class="col"><h3>1+ rows found <span class="tag bad">fail</span></h3><p>The query found bad rows. The number tells you how many.</p></div>
+  </div>
+
+  <h3>Where you write tests</h3>
+  <p>In a YAML file next to the model, called a <b>properties file</b> (here <code>models/staging/telecom/_telecom__models.yml</code>):</p>
+<pre>models:
+  - name: stg_telecom__cell_sites        <span class="cm"># which model (its file name)</span>
+    columns:
+      - name: site_id                    <span class="cm"># which column</span>
+        data_tests: [<span class="hl">unique</span>, <span class="hl">not_null</span>]   <span class="cm"># which checks</span></pre>
+  <p>In plain words: in <code>stg_telecom__cell_sites</code>, every <code>site_id</code> must be unique and must not be empty. <code>unique</code> and <code>not_null</code> are <b>built-in tests</b>: you only name them, and dbt writes the SQL. The file also checks that <code>technology</code> is <code>4G</code> or <code>5G</code> (a built-in test called <code>accepted_values</code>).</p>
+
+  <h3>What dbt turns each test into</h3>
+  <div class="compare">
+    <div class="col">
+      <h3>not_null</h3>
+<pre><span class="cm">-- rows with an empty site_id</span>
+select site_id
+from main_staging.stg_telecom__cell_sites
+where site_id is null</pre>
+    </div>
+    <div class="col">
+      <h3>unique</h3>
+<pre><span class="cm">-- site_ids that appear twice or more</span>
+select site_id, count(*)
+from main_staging.stg_telecom__cell_sites
+where site_id is not null
+group by site_id
+having count(*) > 1</pre>
+    </div>
+  </div>
+  <p>These are the queries you would write yourself to check for empty IDs and duplicates. You can see them in <code>target/compiled/</code>.</p>
+
+  <h3>Run the tests</h3>
+<pre>dbt test --select stg_telecom__cell_sites --indirect-selection cautious
+
+PASS not_null_stg_telecom__cell_sites_site_id
+PASS unique_stg_telecom__cell_sites_site_id
+PASS accepted_values_stg_telecom__cell_sites_technology__4G__5G
+Done. PASS=3</pre>
+  <p>The extra <code>--indirect-selection cautious</code> is needed for now because the properties file also has a test linking cell sites to call records, which are not built yet. It means: only run tests that belong fully to what I selected. After Step 11 you can drop it.</p>
+
+  <h3>What a failure looks like</h3>
+  <p>We added two bad rows to <code>raw.cell_sites</code>: a duplicate <code>S01</code> and a site with no ID. The same command then gave:</p>
+<pre><span class="dbtpart">FAIL 1</span> not_null_stg_telecom__cell_sites_site_id
+<span class="dbtpart">FAIL 1</span> unique_stg_telecom__cell_sites_site_id
+PASS   accepted_values_stg_telecom__cell_sites_technology__4G__5G</pre>
+  <p><code>FAIL 1</code> means the test query found one bad row. There was no need to run <code>dbt run</code> again: the staging model is a <b>view</b> (Step 8), so it reads the raw table live.</p>
+
+  <h3>dbt build: stop bad data from spreading</h3>
+  <p><code>dbt build</code> builds each model, tests it, and only then moves on. With the bad rows still in raw:</p>
+<pre>dbt build --select stg_telecom__cell_sites dim_cell_site --indirect-selection cautious
+
+OK     created view  stg_telecom__cell_sites
+<span class="dbtpart">FAIL 1</span> unique_stg_telecom__cell_sites_site_id
+<span class="dbtpart">FAIL 1</span> not_null_stg_telecom__cell_sites_site_id
+<span class="dbtpart">SKIP</span>   relation main_marts.dim_cell_site      <span class="cm">← not built</span></pre>
+  <div class="flow" role="img" aria-label="raw with bad rows, staging model, tests fail, dimension skipped">
+    <div class="node raw"><b>raw.cell_sites</b><small>Has bad rows</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>stg_telecom__cell_sites</b><small>Built</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>Tests</b><small>FAIL</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>dim_cell_site</b><small>Skipped. Keeps its last good version.</small></div>
+  </div>
+  <p>The bad rows never reached the dimension, and dashboards kept reading the last good version. Once the raw data was clean again, the same command built everything and all 7 checks passed (3 on the staging model, plus 2 the dimension has in its own properties file in <code>models/marts/core/</code>).</p>
+
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td><code>dbt run</code></td><td>Builds models only.</td></tr>
+      <tr><td><code>dbt test</code></td><td>Runs tests only.</td></tr>
+      <tr><td><code>dbt build</code></td><td>Builds each model, tests it, and skips everything downstream if a test fails. What companies run in production.</td></tr>
+    </table>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>A test is a SELECT that looks for bad rows; zero rows means pass. You add tests in YAML by name, and dbt build stops bad data from reaching the next table.</div>
+</section>
+
 <!-- GLOSSARY -->
 <section class="step" id="words">
   <div class="step-head">
@@ -637,6 +725,11 @@ S04  Connaught Place     Delhi   5G</pre>
     <div><dt>Dimension</dt><dd>A table describing things (sites, customers) that reports filter and group by.</dd></div>
     <div><dt>profiles.yml</dt><dd>Connection details: warehouse type, database, schema, credentials.</dd></div>
     <div><dt>dbt_project.yml</dt><dd>Project settings: name, which profile to use, folder defaults.</dd></div>
+    <div><dt>Test (data test)</dt><dd>A check on a model: a SELECT that looks for bad rows. 0 rows = pass.</dd></div>
+    <div><dt>Built-in test</dt><dd>A test dbt already knows: <code>unique</code>, <code>not_null</code>, <code>accepted_values</code>, <code>relationships</code>.</dd></div>
+    <div><dt>Properties file</dt><dd>A YAML file with a <code>models:</code> block that adds tests and descriptions to models (here <code>_telecom__models.yml</code>).</dd></div>
+    <div><dt>dbt build</dt><dd>Builds and tests models in order; skips downstream models when a test fails.</dd></div>
+    <div><dt>Downstream</dt><dd>Models that read from a given model (<code>dim_cell_site</code> is downstream of <code>stg_telecom__cell_sites</code>). Upstream is the opposite.</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -645,8 +738,8 @@ S04  Connaught Place     Delhi   5G</pre>
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Make dbt check the data</h3>
-    <p>We add two simple checks to the cell sites (no empty IDs, no duplicate IDs), run them, and see what a pass and a fail look like.</p>
+    <h3>A second source: call records</h3>
+    <p>We build a staging model for the call records. Unlike cell sites, the raw call data contains duplicates, so we learn how to remove them, and use a test to prove it worked.</p>
   </div>
 </section>
 
