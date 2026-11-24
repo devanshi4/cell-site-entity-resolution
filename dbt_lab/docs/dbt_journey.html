@@ -203,8 +203,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#view-table">8 · View or table?</a>
     <a href="#dim">9 · Build the dimension</a>
     <a href="#tests">10 · Check the data (tests)</a>
+    <a href="#calls">11 · Call records &amp; duplicates</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: call records</a>
+    <a href="#next" class="next">Next: plan lookup file</a>
   </nav>
 </header>
 
@@ -215,9 +216,11 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">1–3</span><span>Ideas: the flow, how a warehouse is organised, why dbt exists</span><span class="s done">Done</span></li>
     <li><span class="n">4–9</span><span>Build cell sites: connect, point to raw, clean, run, view or table, dimension</span><span class="s done">Done</span></li>
     <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s done">Done</span></li>
-    <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s now">Next</span></li>
-    <li><span class="n">12</span><span>Your first fact table: join calls to a dimension</span><span class="s later">Later</span></li>
-    <li><span class="n">13+</span><span>Lookup files, loading only new rows, keeping history</span><span class="s later">Later</span></li>
+    <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s done">Done</span></li>
+    <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s now">Next</span></li>
+    <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s later">Later</span></li>
+    <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s later">Later</span></li>
+    <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s later">Later</span></li>
   </ol>
 </section>
 
@@ -662,7 +665,7 @@ PASS not_null_stg_telecom__cell_sites_site_id
 PASS unique_stg_telecom__cell_sites_site_id
 PASS accepted_values_stg_telecom__cell_sites_technology__4G__5G
 Done. PASS=3</pre>
-  <p>The extra <code>--indirect-selection cautious</code> is needed for now because the properties file also has a test linking cell sites to call records, which are not built yet. It means: only run tests that belong fully to what I selected. After Step 11 you can drop it.</p>
+  <p>The extra <code>--indirect-selection cautious</code> is needed for now because the properties file also has a test linking cell sites to call records, which are not built yet. It means: only run tests that belong fully to what I selected. You need it until every model those tests link to is built.</p>
 
   <h3>What a failure looks like</h3>
   <p>We added two bad rows to <code>raw.cell_sites</code>: a duplicate <code>S01</code> and a site with no ID. The same command then gave:</p>
@@ -700,6 +703,85 @@ OK     created view  stg_telecom__cell_sites
   <div class="takeaway"><span>Takeaway</span>A test is a SELECT that looks for bad rows; zero rows means pass. You add tests in YAML by name, and dbt build stops bad data from reaching the next table.</div>
 </section>
 
+<!-- STEP 11 -->
+<section class="step" id="calls">
+  <div class="step-head">
+    <div class="step-num">Step 11</div>
+    <h2>A second source: call records, and removing duplicates</h2>
+  </div>
+  <p><code>raw.call_events</code> has one row per call, SMS or data session. Before cleaning any new source, <b>look at the raw data</b>. Counting event IDs that appear more than once:</p>
+<pre>select event_id, count(*) as copies
+from raw.call_events
+group by event_id
+having count(*) > 1
+
+E1002   2
+E1016   2</pre>
+  <p>They are two different kinds of duplicate. <code>_loaded_at</code> is the time the loading tool delivered each row:</p>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>E1002 · 600 s · Mar 2</td><td>First delivery</td></tr>
+      <tr><td>E1002 · <b>660 s</b> · <b>Mar 3</b></td><td><b>A correction.</b> The network resent the call with the right duration.</td></tr>
+      <tr><td>E1016 · 420 s · Mar 4</td><td>Normal delivery</td></tr>
+      <tr><td>E1016 · 420 s · Mar 4</td><td><b>An exact re-send.</b> Sent twice by mistake.</td></tr>
+    </table>
+  </div>
+  <p>Left in, these would bill E1002 twice. The rule we use: <b>for each event_id, keep the row with the latest _loaded_at</b>. The correction wins, and the extra copy is dropped.</p>
+
+  <h3>The staging model</h3>
+<pre><span class="cm">-- models/staging/telecom/stg_telecom__call_events.sql</span>
+with source as (
+    select * from <span class="dbtpart">{{ source('telecom', 'call_events') }}</span>
+),
+
+deduplicated as (
+    select *
+    from source
+    <span class="hl">qualify row_number() over (partition by event_id order by _loaded_at desc) = 1</span>
+)
+
+select
+    event_id, customer_id, site_id,
+    upper(event_type)           as event_type,
+    started_at,
+    cast(started_at as date)    as event_date,
+    coalesce(duration_sec, 0)   as duration_sec,
+    coalesce(data_mb, 0)        as data_mb,
+    _loaded_at
+from deduplicated</pre>
+  <p>Still one SELECT, written in steps with CTEs. The duplicate removal is plain SQL:</p>
+  <ul>
+    <li><code>row_number() over (partition by event_id order by _loaded_at desc)</code> numbers the rows of each event_id, newest first. The newest copy gets 1.</li>
+    <li><code>qualify ... = 1</code> keeps only rows numbered 1. QUALIFY is a WHERE for window functions (Snowflake, BigQuery, DuckDB). Elsewhere, put the row_number() in a subquery and filter <code>where rn = 1</code>.</li>
+  </ul>
+
+  <h3>Run and test it</h3>
+<pre>dbt build --select stg_telecom__cell_sites stg_telecom__call_events --indirect-selection cautious
+
+OK   created view stg_telecom__call_events
+PASS unique_stg_telecom__call_events_event_id         <span class="cm">← duplicates are gone</span>
+PASS not_null_stg_telecom__call_events_event_id
+PASS accepted_values_..._event_type__VOICE__SMS__DATA
+PASS relationships_stg_telecom__call_events_site_id__..._cell_sites
+Done. PASS=11</pre>
+  <div class="flow" role="img" aria-label="19 raw rows become 17 staged rows">
+    <div class="node raw"><b>raw.call_events</b><small>19 rows, 2 duplicated IDs</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>stg_telecom__call_events</b><small>17 rows. E1002 = 660 s (the correction), E1016 once.</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>unique test</b><small>PASS</small></div>
+  </div>
+  <p>A new built-in test also ran: <b>relationships</b>. It checks that every <code>site_id</code> in the call records exists in <code>stg_telecom__cell_sites</code>. That is the first link between the two pipelines; a call from an unknown site would fail it.</p>
+
+  <h3>The part only you can decide</h3>
+  <p>"Keep the latest delivery" is a <b>business rule</b>, not a SQL fact. Maybe the first record is the true one, or corrections arrive under a new ID. Only the team that owns the source knows, so you ask them:</p>
+<pre><b>What I understand:</b> call_events sometimes has the same event_id twice, with a later _loaded_at.
+<b>Where I'm stuck:</b>    I don't know if the later row is a correction or a mistake.
+<b>My question:</b>        When an event_id arrives twice, which row should we treat as correct?
+<b>My guess:</b>           The latest delivery is the correction, so we keep that one. Is that right?</pre>
+  <div class="takeaway"><span>Takeaway</span>Look at raw data first. Remove duplicates in the staging model with row_number(), and let a unique test prove it. Which row to keep is a business decision you confirm with the source team.</div>
+</section>
+
 <!-- GLOSSARY -->
 <section class="step" id="words">
   <div class="step-head">
@@ -730,6 +812,10 @@ OK     created view  stg_telecom__cell_sites
     <div><dt>Properties file</dt><dd>A YAML file with a <code>models:</code> block that adds tests and descriptions to models (here <code>_telecom__models.yml</code>).</dd></div>
     <div><dt>dbt build</dt><dd>Builds and tests models in order; skips downstream models when a test fails.</dd></div>
     <div><dt>Downstream</dt><dd>Models that read from a given model (<code>dim_cell_site</code> is downstream of <code>stg_telecom__cell_sites</code>). Upstream is the opposite.</dd></div>
+    <div><dt>relationships test</dt><dd>A built-in test: every value in this column must exist in a column of another model (every call's <code>site_id</code> exists in cell sites).</dd></div>
+    <div><dt>Deduplication</dt><dd>Removing duplicate rows so each ID appears once. Done in the staging model.</dd></div>
+    <div><dt>Load timestamp</dt><dd>A column like <code>_loaded_at</code>: when the loading tool delivered the row. Used to tell old versions from new ones.</dd></div>
+    <div><dt>Business rule</dt><dd>A decision about meaning, like "the latest delivery wins". Confirmed with the people who own the data, not guessed.</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -738,8 +824,8 @@ OK     created view  stg_telecom__cell_sites
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>A second source: call records</h3>
-    <p>We build a staging model for the call records. Unlike cell sites, the raw call data contains duplicates, so we learn how to remove them, and use a test to prove it worked.</p>
+    <h3>The plan lookup file and the plan dimension</h3>
+    <p>To price a call we need each plan's rates. They come from a small CSV file the team keeps in the project (a seed). We load it with one command and build <code>dim_plan</code> from it.</p>
   </div>
 </section>
 
