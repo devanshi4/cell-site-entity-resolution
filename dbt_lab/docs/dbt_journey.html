@@ -204,8 +204,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#dim">9 · Build the dimension</a>
     <a href="#tests">10 · Check the data (tests)</a>
     <a href="#calls">11 · Call records &amp; duplicates</a>
+    <a href="#seed">12 · Plan lookup file (seed)</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: plan lookup file</a>
+    <a href="#next" class="next">Next: customers</a>
   </nav>
 </header>
 
@@ -217,8 +218,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">4–9</span><span>Build cell sites: connect, point to raw, clean, run, view or table, dimension</span><span class="s done">Done</span></li>
     <li><span class="n">10</span><span>Make dbt check the data (tests)</span><span class="s done">Done</span></li>
     <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s done">Done</span></li>
-    <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s now">Next</span></li>
-    <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s later">Later</span></li>
+    <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s done">Done</span></li>
+    <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s now">Next</span></li>
     <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s later">Later</span></li>
     <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s later">Later</span></li>
   </ol>
@@ -635,7 +636,7 @@ S04  Connaught Place     Delhi   5G</pre>
     columns:
       - name: site_id                    <span class="cm"># which column</span>
         data_tests: [<span class="hl">unique</span>, <span class="hl">not_null</span>]   <span class="cm"># which checks</span></pre>
-  <p>In plain words: in <code>stg_telecom__cell_sites</code>, every <code>site_id</code> must be unique and must not be empty. <code>unique</code> and <code>not_null</code> are <b>built-in tests</b>: you only name them, and dbt writes the SQL. The file also checks that <code>technology</code> is <code>4G</code> or <code>5G</code> (a built-in test called <code>accepted_values</code>).</p>
+  <p>In plain words: in <code>stg_telecom__cell_sites</code>, every <code>site_id</code> must be unique and must not be empty. <code>unique</code> and <code>not_null</code> are <b>built-in tests</b>: you only name them, and dbt writes the SQL.</p>
 
   <h3>What dbt turns each test into</h3>
   <div class="compare">
@@ -657,6 +658,34 @@ having count(*) > 1</pre>
     </div>
   </div>
   <p>These are the queries you would write yourself to check for empty IDs and duplicates. You can see them in <code>target/compiled/</code>.</p>
+
+  <h3>Only allow values from a list: accepted_values</h3>
+  <p>The same file also checks that <code>technology</code> is only ever <code>4G</code> or <code>5G</code>:</p>
+  <div class="compare">
+    <div class="col">
+      <h3>You write</h3>
+<pre>- name: technology
+  data_tests:
+    - accepted_values:
+        arguments:
+          values: ["4G", "5G"]</pre>
+    </div>
+    <div class="col">
+      <h3>dbt runs</h3>
+<pre><span class="cm">-- values NOT in the list</span>
+select technology, count(*)
+from main_staging.stg_telecom__cell_sites
+where technology not in ('4G', '5G')
+group by technology</pre>
+    </div>
+  </div>
+  <p>If someone loads <code>3G</code>, the query returns a row and the test fails. For a <b>number</b> column, add <code>quote: false</code>, because by default dbt puts quotes around each value:</p>
+<pre>- name: priority
+  data_tests:
+    - accepted_values:
+        arguments:
+          values: [1, 2, 3, 4]
+          quote: false</pre>
 
   <h3>Run the tests</h3>
 <pre>dbt test --select stg_telecom__cell_sites --indirect-selection cautious
@@ -771,7 +800,39 @@ Done. PASS=11</pre>
     <div class="arrow">→</div>
     <div class="node dbt"><b>unique test</b><small>PASS</small></div>
   </div>
-  <p>A new built-in test also ran: <b>relationships</b>. It checks that every <code>site_id</code> in the call records exists in <code>stg_telecom__cell_sites</code>. That is the first link between the two pipelines; a call from an unknown site would fail it.</p>
+  <h3>Link two tables: the relationships test</h3>
+  <p>Now that there are two models, a new built-in test can run: <b>relationships</b>. It is the foreign-key check from SQL. You write it on the <b>child</b> column (the one that points to another table) and name the <b>parent</b> table and column:</p>
+  <div class="compare">
+    <div class="col">
+      <h3>You write</h3>
+<pre><span class="cm"># under model stg_telecom__call_events</span>
+- name: site_id                <span class="cm"># child column</span>
+  data_tests:
+    - relationships:
+        arguments:
+          to: ref('stg_telecom__cell_sites')  <span class="cm"># parent</span>
+          field: site_id                      <span class="cm"># parent column</span></pre>
+    </div>
+    <div class="col">
+      <h3>dbt runs</h3>
+<pre><span class="cm">-- calls whose site does not exist</span>
+select c.site_id
+from stg_telecom__call_events c
+left join stg_telecom__cell_sites p
+  on c.site_id = p.site_id
+where c.site_id is not null
+  and p.site_id is null</pre>
+    </div>
+  </div>
+  <p>In plain words: every <code>site_id</code> in the call records must exist in cell sites. Warehouses like Snowflake do not enforce foreign keys, so this test is how you enforce them.</p>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td><code>unique</code></td><td>No value appears twice (<code>event_id</code>)</td></tr>
+      <tr><td><code>not_null</code></td><td>No empty values (<code>site_id</code>)</td></tr>
+      <tr><td><code>accepted_values</code></td><td>Only values from a list (<code>technology</code> in 4G, 5G)</td></tr>
+      <tr><td><code>relationships</code></td><td>Every value exists in another table (each call's <code>site_id</code>)</td></tr>
+    </table>
+  </div>
 
   <h3>The part only you can decide</h3>
   <p>"Keep the latest delivery" is a <b>business rule</b>, not a SQL fact. Maybe the first record is the true one, or corrections arrive under a new ID. Only the team that owns the source knows, so you ask them:</p>
@@ -780,6 +841,87 @@ Done. PASS=11</pre>
 <b>My question:</b>        When an event_id arrives twice, which row should we treat as correct?
 <b>My guess:</b>           The latest delivery is the correction, so we keep that one. Is that right?</pre>
   <div class="takeaway"><span>Takeaway</span>Look at raw data first. Remove duplicates in the staging model with row_number(), and let a unique test prove it. Which row to keep is a business decision you confirm with the source team.</div>
+</section>
+
+<!-- STEP 12 -->
+<section class="step" id="seed">
+  <div class="step-head">
+    <div class="step-num">Step 12</div>
+    <h2>The plan lookup file (a seed)</h2>
+  </div>
+  <p>To price a call we need each plan's rates. That list is small (3 rows), owned by the pricing team, changes a few times a year, and <b>no source system loads it</b>. So you keep it in the project as a CSV file, and dbt loads it into the warehouse. A CSV used like this is called a <b>seed</b>.</p>
+
+  <h3>The file: seeds/plan_catalog.csv</h3>
+<pre>plan_code,plan_name,monthly_fee,per_minute_rate,per_mb_rate,per_sms_rate
+BASIC,Basic Talk,199.00,0.50,0.10,0.25
+STANDARD,Standard Plus,399.00,0.30,0.05,0.10
+PREMIUM,Premium Unlimited,799.00,0.00,0.00,0.00</pre>
+
+  <h3>Load it</h3>
+<pre>dbt seed
+
+OK loaded seed file main_seeds.plan_catalog ....... [INSERT 3]</pre>
+  <div class="flow" role="img" aria-label="CSV file in the project, dbt seed, table in the warehouse, dim_plan">
+    <div class="node you"><b>plan_catalog.csv</b><small>In the project, in git</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>dbt seed</b><small>Creates the table and inserts the rows</small></div>
+    <div class="arrow">→</div>
+    <div class="node raw"><b>main_seeds.plan_catalog</b><small>Table in the warehouse</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>dim_plan</b><small>Your dimension, via ref()</small></div>
+  </div>
+  <p>As with models, the file name becomes the table name.</p>
+
+  <h3>Tell dbt the column types: seeds/_seeds.yml</h3>
+  <p>A CSV is just text, so dbt guesses each column's type and can guess wrong (a code like <code>007</code> would become the number 7). You state the types, and you can add tests:</p>
+<pre>seeds:
+  - name: plan_catalog               <span class="cm"># = the CSV file name</span>
+    config:
+      column_types:
+        plan_code: varchar
+        monthly_fee: decimal(10,2)
+        per_minute_rate: decimal(10,2)
+    columns:
+      - name: plan_code
+        data_tests: [unique, not_null]</pre>
+
+  <h3>Use it: dim_plan.sql</h3>
+  <p>You read a seed with <code>ref()</code>, exactly like a model:</p>
+<pre>select
+    plan_code, plan_name, monthly_fee,
+    per_minute_rate, per_mb_rate, per_sms_rate,
+    per_minute_rate = 0 and per_mb_rate = 0 as is_unlimited   <span class="cm">-- a helpful extra column</span>
+from <span class="dbtpart">{{ ref('plan_catalog') }}</span></pre>
+<pre>dbt build --select plan_catalog dim_plan --indirect-selection cautious
+
+OK   loaded seed file main_seeds.plan_catalog
+PASS unique_plan_catalog_plan_code
+PASS not_null_plan_catalog_plan_code
+OK   created sql table model main_marts.dim_plan
+Done. PASS=6</pre>
+  <p><code>dbt build</code> loads seeds too, so a separate <code>dbt seed</code> is only needed when you use <code>dbt run</code>. The flag is needed because a test links customer plans to this file, and customers are not built yet.</p>
+
+  <h3>Why a seed and not a table made by hand?</h3>
+  <p>When pricing changes BASIC from 0.50 to 0.60, you edit the CSV and open a pull request. Someone reviews it, git records who changed it and why, and the next <code>dbt build</code> loads the new value.</p>
+  <div class="compare">
+    <div class="col">
+      <h3>Good seed <span class="tag good">yes</span></h3>
+      <ul>
+        <li>Plan prices, country codes, region mappings</li>
+        <li>A list of test accounts to exclude</li>
+        <li>Small, changed by people via pull request</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Not a seed <span class="tag bad">no</span></h3>
+      <ul>
+        <li>Customers, calls, orders: real data from systems</li>
+        <li>Anything big (thousands of rows or more)</li>
+        <li>Anything that changes every day</li>
+      </ul>
+    </div>
+  </div>
+  <div class="takeaway"><span>Takeaway</span>A seed is a small CSV kept in the project that dbt loads as a table. You read it with ref(), and changes go through git like code.</div>
 </section>
 
 <!-- GLOSSARY -->
@@ -816,6 +958,10 @@ Done. PASS=11</pre>
     <div><dt>Deduplication</dt><dd>Removing duplicate rows so each ID appears once. Done in the staging model.</dd></div>
     <div><dt>Load timestamp</dt><dd>A column like <code>_loaded_at</code>: when the loading tool delivered the row. Used to tell old versions from new ones.</dd></div>
     <div><dt>Business rule</dt><dd>A decision about meaning, like "the latest delivery wins". Confirmed with the people who own the data, not guessed.</dd></div>
+    <div><dt>Seed</dt><dd>A small CSV in the <code>seeds/</code> folder that dbt loads as a table. Read with <code>ref()</code>.<span class="not">Not for real system data.</span></dd></div>
+    <div><dt>dbt seed</dt><dd>Loads all seed CSVs into the warehouse (<code>dbt build</code> does it too).</dd></div>
+    <div><dt>column_types</dt><dd>A seed config that sets each column's type, so dbt does not guess.</dd></div>
+    <div><dt>accepted_values test</dt><dd>A built-in test: a column may only contain values from a list. Add <code>quote: false</code> for numbers.</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -824,8 +970,8 @@ Done. PASS=11</pre>
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>The plan lookup file and the plan dimension</h3>
-    <p>To price a call we need each plan's rates. They come from a small CSV file the team keeps in the project (a seed). We load it with one command and build <code>dim_plan</code> from it.</p>
+    <h3>The customer dimension</h3>
+    <p>Customers change: they upgrade plans and move cities, and the raw table only keeps their current state. We build the customer dimension and see how dbt can keep a history of those changes.</p>
   </div>
 </section>
 
