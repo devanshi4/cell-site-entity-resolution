@@ -207,8 +207,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#seed">12 · Plan lookup file (seed)</a>
     <a href="#snapshot">13 · Customers &amp; history</a>
     <a href="#fact">14 · First fact table</a>
+    <a href="#incremental">15 · Only new rows</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: only new rows</a>
+    <a href="#next" class="next">Next: who uses it</a>
   </nav>
 </header>
 
@@ -223,7 +224,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s done">Done</span></li>
     <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s done">Done</span></li>
     <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s done">Done</span></li>
-    <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s now">Next</span></li>
+    <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s done">Done</span></li>
+    <li><span class="n">16</span><span>The reporting layer, and who uses the output</span><span class="s now">Next</span></li>
   </ol>
 </section>
 
@@ -1045,6 +1047,26 @@ from <span class="dbtpart">{{ ref('snap_customers') }}</span>       <span class=
   </div>
   <p><b>The most common mistake</b> is joining on <code>customer_id</code> alone. Priya has 3 versions by day 3, so each of her calls would match 3 rows and be counted 3 times: 28 rows instead of 17, inflated revenue, and <b>no error message</b>. The <code>unique</code> test on <code>event_id</code> is what catches it.</p>
 
+  <h3>Picture it as a timeline</h3>
+  <p>Each version covers a stretch of time; each call is a point. The join finds the stretch the point falls into:</p>
+<pre>Priya (C002)
+ 12 Jan 11:30            2 Mar 10:00             3 Mar 18:00
+     ├───── BASIC ──────┼──── PREMIUM ──────┼──── PREMIUM, churned ───▶
+                  ▲                  ▲
+            E1008 08:00        E1009 15:00
+            → BASIC            → PREMIUM</pre>
+  <ul>
+    <li><b>Why &gt;= and &lt;, not BETWEEN?</b> BETWEEN includes both ends. A call at exactly 10:00 would match both the BASIC version (ending 10:00) and the PREMIUM version (starting 10:00), and be counted twice. With <code>&gt;= valid_from</code> and <code>&lt; valid_to</code>, the boundary moment belongs to exactly one version: the new one.</li>
+    <li><b>No version matches.</b> If a call happened before the customer's first <code>valid_from</code> (say the CRM recorded the signup late), nothing matches. The left join keeps the call but <code>customer_sk</code> is empty, and the <code>not_null</code> test on <code>fct_calls.customer_sk</code> catches it.</li>
+  </ul>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>Which plan did she have <b>when</b> she called?</td><td>Point-in-time: <code>started_at &gt;= valid_from and started_at &lt; valid_to</code></td></tr>
+      <tr><td>Which plan does she have <b>now</b>?</td><td><code>customer_id = customer_id and is_current</code></td></tr>
+    </table>
+  </div>
+  <p>The same join shape appears everywhere: the product price when an order was placed, the exchange rate on the day of a payment, the department an employee was in when they made a sale.</p>
+
   <h3>The model: fct_calls.sql (simplified)</h3>
   <p>The real file starts with a <code>config(...)</code> block; that belongs to Step 15.</p>
 <pre>with events as (select * from <span class="dbtpart">{{ ref('stg_telecom__call_events') }}</span>),
@@ -1092,6 +1114,83 @@ E1008     C002         2026-03-02 08:00  BASIC                    15          7.
 E1009     C002         2026-03-02 15:00  PREMIUM                  15          0.00   <span class="cm">← after upgrade</span></pre>
   <p>Priya's two 15-minute calls on the same day are priced differently, and correctly. Finance sums <code>usage_charge</code> for revenue; analysts group it by city, plan or day.</p>
   <div class="takeaway"><span>Takeaway</span>A fact table records events, one row per grain, with numbers to add up. Join an SCD2 dimension with a point-in-time join so each event gets the version true at that moment.</div>
+</section>
+
+<!-- STEP 15 -->
+<section class="step" id="incremental">
+  <div class="step-head">
+    <div class="step-num">Step 15</div>
+    <h2>Loading only new rows (incremental)</h2>
+  </div>
+  <p>A real operator gets millions of calls a day and keeps years of them. As a plain table, <code>fct_calls</code> would be deleted and rebuilt from all history every night just to add one day. <b>Incremental</b> means: on each run, process only the new rows and add them to the table that already exists.</p>
+
+  <h3>The config block at the top of fct_calls.sql</h3>
+<pre>{{
+    config(
+        materialized = '<span class="hl">incremental</span>',     <span class="cm">-- not view, not table</span>
+        unique_key = '<span class="hl">event_id</span>',          <span class="cm">-- how to recognise a row already there</span>
+        incremental_strategy = 'merge'    <span class="cm">-- update existing rows, insert new ones</span>
+    )
+}}</pre>
+  <p><code>incremental</code> is a third materialization after view and table (Step 8). It is set inside the file because only this model needs it.</p>
+
+  <h3>The filter: only new rows</h3>
+<pre>with events as (
+    select * from {{ ref('stg_telecom__call_events') }}
+
+    <span class="dbtpart">{% if is_incremental() %}</span>
+    where _loaded_at > (select max(_loaded_at) from <span class="dbtpart">{{ this }}</span>)
+    <span class="dbtpart">{% endif %}</span>
+)</pre>
+  <ul>
+    <li><code>{% if is_incremental() %}</code>: the where line is used <b>only when the table already exists</b>. On the first run it is skipped, so all rows load.</li>
+    <li><code>{{ this }}</code>: this model's own table as it is right now (<code>main_marts.fct_calls</code>).</li>
+    <li><code>max(_loaded_at)</code>: the latest delivery already in the table. Anything delivered after it is new.</li>
+  </ul>
+
+  <h3>Night by night</h3>
+  <div class="flow" role="img" aria-label="night 1 creates the table with 7 rows, night 2 merges 7 new rows to reach 13">
+    <div class="node dbt"><b>Night 1</b><small>Table does not exist → filter skipped → create table with all 7 rows</small></div>
+    <div class="arrow">→</div>
+    <div class="node dbt"><b>Night 2</b><small>Filter used → only the 7 rows delivered on 3 Mar → merge → 13 rows</small></div>
+  </div>
+<pre>python scripts/load_raw.py --reset && python scripts/load_raw.py --day 1
+dbt build --select +fct_calls          <span class="cm"># 7 rows</span>
+python scripts/load_raw.py --day 2
+dbt build --select +fct_calls          <span class="cm"># 13 rows</span></pre>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>E1008–E1012</td><td>Not in table → <b>insert</b> (5 new calls)</td></tr>
+      <tr><td>E1013 (happened 1 Mar, arrived late)</td><td>Not in table → <b>insert</b></td></tr>
+      <tr><td>E1002 (correction, 660 s)</td><td>Already there with 600 s → <b>update</b> to 660 s</td></tr>
+    </table>
+  </div>
+  <p>7 + 6 inserted = 13 rows, and E1002 was fixed instead of duplicated. That is what <code>unique_key</code> is for.</p>
+
+  <h3>What dbt ran on night 2 (simplified, from target/run/)</h3>
+<pre><span class="cm">-- 1. only the new rows, in a temporary table</span>
+create temporary table fct_calls__dbt_tmp as
+    select ... where _loaded_at > (select max(_loaded_at) from main_marts.fct_calls);
+
+<span class="cm">-- 2. merge them into the real table</span>
+merge into main_marts.fct_calls as target
+using fct_calls__dbt_tmp as source
+on source.event_id = target.event_id
+when matched then update set ...      <span class="cm">-- the E1002 correction</span>
+when not matched then insert ...      <span class="cm">-- new and late calls</span></pre>
+
+  <h3>The key decision: which column to filter on</h3>
+  <div class="compare">
+    <div class="col"><h3><code>_loaded_at</code> <span class="tag good">use</span></h3><p>When the row was <b>delivered</b>. Always grows with each delivery, so late and corrected rows are picked up.</p></div>
+    <div class="col"><h3><code>started_at</code> <span class="tag bad">avoid</span></h3><p>When the call <b>happened</b>. On night 2 the newest call in the table is 1 Mar 21:00; the E1002 correction (1 Mar 09:10) is earlier, so it is <b>skipped silently</b>.</p></div>
+  </div>
+  <p>Picking this column means knowing how the source delivers data: a question for the source team, not a guess.</p>
+
+  <h3>When the logic changes: --full-refresh</h3>
+  <p>If the billing rule changes, incremental runs only apply it to new rows; old rows keep old prices. To rebuild everything:</p>
+<pre>dbt build --select fct_calls --full-refresh</pre>
+  <p>This drops the table and loads all history again, like night 1.</p>
+  <div class="takeaway"><span>Takeaway</span>Incremental adds only new rows (is_incremental() plus a filter on {{ this }}). unique_key with merge updates corrections. Filter on delivery time, not event time, so nothing late is lost.</div>
 </section>
 
 <!-- GLOSSARY -->
@@ -1142,6 +1241,13 @@ E1009     C002         2026-03-02 15:00  PREMIUM                  15          0.
     <div><dt>Point-in-time join</dt><dd>Joining an event to the dimension version valid at the event's time (<code>valid_from &lt;= time &lt; valid_to</code>).</dd></div>
     <div><dt>Macro</dt><dd>A reusable helper in <code>macros/</code> that dbt replaces with SQL, e.g. <code>billable_minutes</code>.</dd></div>
     <div><dt>+model (selector)</dt><dd><code>--select +fct_calls</code>: the model and everything it depends on. <code>fct_calls+</code>: the model and everything that depends on it.</dd></div>
+    <div><dt>Incremental model</dt><dd>A model that, after its first run, only processes new rows and adds them to its existing table.</dd></div>
+    <div><dt>is_incremental()</dt><dd>True only when the model is incremental, its table exists, and you did not pass <code>--full-refresh</code>.</dd></div>
+    <div><dt>{{ this }}</dt><dd>The model's own table as it currently is in the warehouse.</dd></div>
+    <div><dt>unique_key</dt><dd>The column that identifies a row, so a re-delivered row updates instead of duplicating.</dd></div>
+    <div><dt>Merge</dt><dd>SQL that updates rows that match and inserts rows that do not.</dd></div>
+    <div><dt>--full-refresh</dt><dd>Rebuild an incremental model from scratch, e.g. after the logic changes.</dd></div>
+    <div><dt>Late-arriving data</dt><dd>A row that happened earlier but was delivered later (E1013).</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -1150,8 +1256,8 @@ E1009     C002         2026-03-02 15:00  PREMIUM                  15          0.
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Loading only new rows (incremental)</h3>
-    <p>A real operator has billions of calls. Rebuilding fct_calls from scratch every night is too slow, so dbt can add only the new rows each night. We look at the config block at the top of fct_calls.sql and what it changes.</p>
+    <h3>The reporting layer, and who uses the output</h3>
+    <p>We look at the small summary table the dashboard reads, how the BI team and data scientists use the marts, and how dbt records who depends on what.</p>
   </div>
 </section>
 
