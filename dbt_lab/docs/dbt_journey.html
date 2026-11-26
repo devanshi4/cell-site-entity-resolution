@@ -206,8 +206,9 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <a href="#calls">11 · Call records &amp; duplicates</a>
     <a href="#seed">12 · Plan lookup file (seed)</a>
     <a href="#snapshot">13 · Customers &amp; history</a>
+    <a href="#fact">14 · First fact table</a>
     <a href="#words">Words to know</a>
-    <a href="#next" class="next">Next: first fact table</a>
+    <a href="#next" class="next">Next: only new rows</a>
   </nav>
 </header>
 
@@ -221,8 +222,8 @@ footer { color: var(--muted); font-size: 0.82rem; }
     <li><span class="n">11</span><span>A second source: call records, and removing duplicates</span><span class="s done">Done</span></li>
     <li><span class="n">12</span><span>The plan lookup file (a seed) and the plan dimension</span><span class="s done">Done</span></li>
     <li><span class="n">13</span><span>The customer dimension, and keeping history of changes</span><span class="s done">Done</span></li>
-    <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s now">Next</span></li>
-    <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s later">Later</span></li>
+    <li><span class="n">14</span><span>Your first fact table: calls joined to the dimensions</span><span class="s done">Done</span></li>
+    <li><span class="n">15</span><span>Loading only new rows (incremental)</span><span class="s now">Next</span></li>
   </ol>
 </section>
 
@@ -1012,6 +1013,87 @@ from <span class="dbtpart">{{ ref('snap_customers') }}</span>       <span class=
   <div class="takeaway"><span>Takeaway</span>Raw keeps only the current state. A snapshot keeps every version with valid_from and valid_to (SCD Type 2), so you can answer what was true at any moment.</div>
 </section>
 
+<!-- STEP 14 -->
+<section class="step" id="fact">
+  <div class="step-head">
+    <div class="step-num">Step 14</div>
+    <h2>Your first fact table</h2>
+  </div>
+  <p>Dimensions <b>describe</b> things (sites, plans, customers). A <b>fact table</b> records <b>events that happened</b>, with numbers you add up: minutes, MB, charge. Our fact table is <code>fct_calls</code>.</p>
+  <p>The first decision is the <b>grain</b>: what one row represents. For <code>fct_calls</code> it is <b>one row per event_id</b> (one call, SMS or data session). Write it down before any SQL; a <code>unique</code> test on <code>event_id</code> protects it.</p>
+  <div class="flow" role="img" aria-label="call events, customer dimension and plan dimension feed fct_calls">
+    <div class="node you"><b>stg_telecom__call_events</b><small>What happened</small></div>
+    <div class="arrow">+</div>
+    <div class="node you"><b>dim_customer</b><small>Which plan, at that time</small></div>
+    <div class="arrow">+</div>
+    <div class="node you"><b>dim_plan</b><small>The rates for that plan</small></div>
+    <div class="arrow">→</div>
+    <div class="node you"><b>fct_calls</b><small>One row per call, priced</small></div>
+  </div>
+
+  <h3>The key join: the version true at the time of the call</h3>
+  <p><code>dim_customer</code> has several rows per customer, one per version. Each call must match only the version valid when it happened. This is a <b>point-in-time join</b>:</p>
+<pre>left join customers c
+    on  e.customer_id = c.customer_id
+    <span class="hl">and e.started_at >= c.valid_from</span>     <span class="cm">-- version started before the call</span>
+    <span class="hl">and e.started_at &lt;  c.valid_to</span>       <span class="cm">-- and ended after it</span></pre>
+  <div class="map-wrap">
+    <table class="map">
+      <tr><td>E1008 · 2 Mar 08:00</td><td>matches 12 Jan → 2 Mar 10:00 → <b>BASIC</b></td></tr>
+      <tr><td>E1009 · 2 Mar 15:00</td><td>matches 2 Mar 10:00 → 9999 → <b>PREMIUM</b></td></tr>
+    </table>
+  </div>
+  <p><b>The most common mistake</b> is joining on <code>customer_id</code> alone. Priya has 3 versions by day 3, so each of her calls would match 3 rows and be counted 3 times: 28 rows instead of 17, inflated revenue, and <b>no error message</b>. The <code>unique</code> test on <code>event_id</code> is what catches it.</p>
+
+  <h3>The model: fct_calls.sql (simplified)</h3>
+  <p>The real file starts with a <code>config(...)</code> block; that belongs to Step 15.</p>
+<pre>with events as (select * from <span class="dbtpart">{{ ref('stg_telecom__call_events') }}</span>),
+     customers as (select * from <span class="dbtpart">{{ ref('dim_customer') }}</span>),
+     plans as (select * from <span class="dbtpart">{{ ref('dim_plan') }}</span>)
+
+select
+    e.event_id,
+    c.customer_sk,             <span class="cm">-- which customer version</span>
+    e.customer_id, e.site_id, e.event_date, e.event_type,
+    c.plan_code,               <span class="cm">-- plan at call time</span>
+    e.duration_sec, e.data_mb,
+    case e.event_type
+        when 'VOICE' then <span class="dbtpart">{{ billable_minutes('e.duration_sec') }}</span> * p.per_minute_rate
+        when 'DATA'  then e.data_mb * p.per_mb_rate
+        when 'SMS'   then p.per_sms_rate
+    end as usage_charge
+from events e
+left join customers c
+    on  e.customer_id = c.customer_id
+    and e.started_at >= c.valid_from
+    and e.started_at &lt;  c.valid_to
+left join plans p
+    on c.plan_code = p.plan_code</pre>
+  <p><code>{{ billable_minutes(...) }}</code> is a <b>macro</b>: a small helper that dbt replaces with SQL, here <code>cast(ceil(e.duration_sec / 60.0) as integer)</code>. So 61 seconds bills as 2 minutes. The billing rule lives in one file.</p>
+
+  <h3>Run it</h3>
+<pre>dbt build --select +fct_calls
+
+OK snapshotted main_snapshots.snap_customers
+OK created sql view  model main_staging.stg_telecom__call_events
+OK created sql table model main_marts.dim_customer
+OK created sql table model main_marts.dim_plan
+OK created sql incremental model main_marts.fct_calls
+PASS unique_fct_calls_event_id
+PASS not_null_fct_calls_customer_sk</pre>
+  <p>The <code>+</code> in front means: this model <b>and everything it depends on</b>, in order. <code>--indirect-selection cautious</code> is no longer needed, because every model the tests link to now exists.</p>
+
+  <h3>The result (after day 2)</h3>
+<pre>event_id  customer_id  started_at        plan_code  billable_minutes  usage_charge
+E1001     C001         2026-03-01 08:05  BASIC                     5          2.50
+E1002     C002         2026-03-01 09:10  BASIC                    11          5.50
+E1004     C003         2026-03-01 12:00  PREMIUM                   2          0.00
+E1008     C002         2026-03-02 08:00  BASIC                    15          7.50   <span class="cm">← before upgrade</span>
+E1009     C002         2026-03-02 15:00  PREMIUM                  15          0.00   <span class="cm">← after upgrade</span></pre>
+  <p>Priya's two 15-minute calls on the same day are priced differently, and correctly. Finance sums <code>usage_charge</code> for revenue; analysts group it by city, plan or day.</p>
+  <div class="takeaway"><span>Takeaway</span>A fact table records events, one row per grain, with numbers to add up. Join an SCD2 dimension with a point-in-time join so each event gets the version true at that moment.</div>
+</section>
+
 <!-- GLOSSARY -->
 <section class="step" id="words">
   <div class="step-head">
@@ -1055,6 +1137,11 @@ from <span class="dbtpart">{{ ref('snap_customers') }}</span>       <span class=
     <div><dt>Current version</dt><dd>The row whose <code>valid_to</code> is 9999-12-31: what is true today.</dd></div>
     <div><dt>Snapshot strategy</dt><dd>How dbt spots a change: <code>timestamp</code> (updated_at got newer) or <code>check</code> (compare column values).</dd></div>
     <div><dt>CRM</dt><dd>The system that stores customer accounts (Salesforce, for example).</dd></div>
+    <div><dt>Fact table</dt><dd>A table of events that happened, with numbers to add up (<code>fct_calls</code>).</dd></div>
+    <div><dt>Grain</dt><dd>What one row of a table represents. <code>fct_calls</code>: one row per <code>event_id</code>.</dd></div>
+    <div><dt>Point-in-time join</dt><dd>Joining an event to the dimension version valid at the event's time (<code>valid_from &lt;= time &lt; valid_to</code>).</dd></div>
+    <div><dt>Macro</dt><dd>A reusable helper in <code>macros/</code> that dbt replaces with SQL, e.g. <code>billable_minutes</code>.</dd></div>
+    <div><dt>+model (selector)</dt><dd><code>--select +fct_calls</code>: the model and everything it depends on. <code>fct_calls+</code>: the model and everything that depends on it.</dd></div>
     <div><dt>Config key</dt><dd>A setting in a YAML file, like <code>schema: raw</code>.<span class="not">Not a variable.</span></dd></div>
   </dl>
 </section>
@@ -1063,8 +1150,8 @@ from <span class="dbtpart">{{ ref('snap_customers') }}</span>       <span class=
 <section class="step" id="next">
   <div class="next-card">
     <div class="eyebrow">Next step</div>
-    <h3>Your first fact table</h3>
-    <p>We join the call records to the customer and plan dimensions, picking the customer version that was true at the time of each call, and price every call.</p>
+    <h3>Loading only new rows (incremental)</h3>
+    <p>A real operator has billions of calls. Rebuilding fct_calls from scratch every night is too slow, so dbt can add only the new rows each night. We look at the config block at the top of fct_calls.sql and what it changes.</p>
   </div>
 </section>
 
